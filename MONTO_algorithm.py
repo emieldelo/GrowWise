@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import json
 import os
-import request
+import requests
 from scipy import stats
 from scipy.optimize import minimize
 import warnings
