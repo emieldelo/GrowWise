@@ -10,14 +10,6 @@ import warnings
 from zoneinfo import ZoneInfo  # Add this with your other imports
 warnings.filterwarnings('ignore')
 
-yf.set_config(
-    # Browser-achtige headers
-    headers={
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Connection': 'keep-alive',
-    })
 
 class UltimateQuantStrategy:
     """
@@ -80,12 +72,20 @@ class UltimateQuantStrategy:
     def get_market_data_optimized(self):
         """Fetch market data including Fear & Greed indices"""
         try:
-            # Get IWDA and Bitcoin data
+            # Create session with User-Agent for yfinance
+            import requests
+            import os
+            
+            session = requests.Session()
+            user_agent = os.getenv('YF_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+            session.headers.update({'User-Agent': user_agent})
+            
+            # Get IWDA and Bitcoin data with session
             print("Fetching market prices...")
-            iwda = yf.Ticker("IWDA.AS")  # IWDA on Amsterdam exchange
-            btc = yf.Ticker("BTC-USD")
-            vix = yf.Ticker("^VIX")
-            usd_eur = yf.Ticker("EURUSD=X")
+            iwda = yf.Ticker("IWDA.AS", session=session)
+            btc = yf.Ticker("BTC-USD", session=session)
+            vix = yf.Ticker("^VIX", session=session)
+            usd_eur = yf.Ticker("EURUSD=X", session=session)
 
             # Get 2 years of data
             period = "2y"
@@ -94,40 +94,40 @@ class UltimateQuantStrategy:
             vix_data = vix.history(period=period)
             usd_eur_data = usd_eur.history(period="1d")
 
-            import requests
-
             try:
                 # CNN Fear & Greed for S&P 500
                 print("Fetching S&P500 Fear & Greed Index...")
                 cnn_url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
                 headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'User-Agent': user_agent,
                     'Accept': 'application/json'
                 }
-                cnn_response = requests.get(cnn_url, headers=headers)
+                cnn_response = requests.get(cnn_url, headers=headers, timeout=10)
                 cnn_data = cnn_response.json()
                 sp500_fear_greed = float(cnn_data['fear_and_greed']['score'])
                 print(f"S&P500 Fear & Greed: {sp500_fear_greed:.1f}")
 
             except Exception as e:
                 print(f"CNN API error: {e}, using fallback calculation")
-                # Fallback calculation
                 sp500_fear_greed = 50  # Neutral stance if API fails
 
             try:
                 # Alternative.me Fear & Greed for Bitcoin
                 print("Fetching Bitcoin Fear & Greed Index...")
                 crypto_url = "https://api.alternative.me/fng/?limit=1"
-                crypto_response = requests.get(crypto_url)
+                crypto_response = requests.get(crypto_url, timeout=10)
                 crypto_data = crypto_response.json()
-
-                # Extract value from the response
                 btc_fear_greed = float(crypto_data['data'][0]['value'])
                 print(f"Bitcoin Fear & Greed: {btc_fear_greed:.1f}")
 
             except Exception as e:
                 print(f"Crypto API error: {e}, using fallback calculation")
                 btc_fear_greed = 50  # Neutral stance if API fails
+
+            # Check if data is empty
+            if iwda_data.empty or btc_data.empty or vix_data.empty or usd_eur_data.empty:
+                print("Warning: Some market data is empty")
+                return None
 
             # Get current USD/EUR rate (invert for correct conversion)
             usd_eur_rate = 1 / usd_eur_data['Close'].iloc[-1]
@@ -400,1034 +400,266 @@ class UltimateQuantStrategy:
     def generate_ultimate_recommendation(self):
         """Generate the ultimate quantitative recommendation"""
         print("🧮 ULTIMATE QUANTITATIVE ANALYSIS INITIATED...")
-        
+        print("📊 Fetching market data...")
+
         # Get market data
         data = self.get_market_data_optimized()
         if not data:
             return None
 
-        # Calculate all metrics
+        print("📈 Calculating statistical regime...")
         regime_data = self.calculate_statistical_regime(data)
+
+        print("🎯 Applying Kelly Criterion optimization...")
         kelly_data = self.calculate_kelly_criterion(data)
+
+        print("⚠️  Computing Value at Risk...")
         var_data = self.calculate_value_at_risk(data)
-        allocation = self.optimize_portfolio_allocation(regime_data, kelly_data, var_data, data)
+
+        print("🚀 Optimizing portfolio allocation...")
+        allocation = self.optimize_portfolio_allocation(regime_data, kelly_data, var_data, data)  # Add data parameter
+
+        print("💰 Calculating expected returns...")
         performance = self.calculate_expected_returns(allocation, var_data)
-        entry_points = self.analyze_optimal_entry_points(
-            {
-                'btc': data['btc']['Close'].iloc[-1],
-                'iwda': data['iwda']['Close'].iloc[-1]
-            },
-            allocation
-        )
 
-        # Calculate EUR price for Bitcoin
-        btc_eur_price = data['btc']['Close'].iloc[-1] * data['usd_eur_rate']
-
-        # Generate comprehensive recommendation dictionary
+        # Compile comprehensive recommendation
         recommendation = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'brussels_time': self.convert_to_brussels_time(datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-            
-            # Market conditions
             'market_regime': {
                 'regime': allocation['regime'],
-                'sp500_fear_greed': regime_data['sp500_fear_greed'],
-                'btc_fear_greed': regime_data['btc_fear_greed'],
-                'vix_level': regime_data['vix_level'],
+                'composite_score': regime_data['composite_score'],
+                'sp500_fear_greed': data['sp500_fear_greed'],
+                'btc_fear_greed': data['btc_fear_greed'],
+                'btc_fear_greed_level': data['btc_fear_greed'],  # Add this line
                 'usd_eur_rate': data['usd_eur_rate'],
                 'iwda_vs_ma200': regime_data['iwda_vs_ma200'],
-                'btc_vs_ma200': regime_data['btc_vs_ma200']
+                'btc_vs_ma200': regime_data['btc_vs_ma200'],
+                'vix_level': regime_data['vix_level']
             },
-            
-            # Investment details
-            'allocation': {
-                'total_amount': allocation['total_investment'],
-                'component_count': allocation['component_count'],
-                'iwda': {
-                    'shares': allocation['iwda_shares'],
-                    'amount': allocation['iwda_amount'],
-                    'current_price': data['iwda']['Close'].iloc[-1],
-                    'orders': entry_points['iwda_orders']
-                },
-                'bitcoin': {
-                    'amount': allocation['btc_amount'],
-                    'current_price_usd': data['btc']['Close'].iloc[-1],
-                    'current_price_eur': btc_eur_price,
-                    'orders': entry_points['btc_orders']
-                }
+            'allocation': allocation,
+            'risk_metrics': {
+                'iwda_var_95': var_data['iwda_var'],
+                'btc_var_95': var_data['btc_var'],
+                'iwda_volatility': var_data['iwda_vol'],
+                'btc_volatility': var_data['btc_vol']
             },
-            
-            # Risk metrics
-            'risk_analysis': {
-                'value_at_risk': {
-                    'iwda': var_data['iwda_var'] * 100,
-                    'btc': var_data['btc_var'] * 100
-                },
-                'volatility': {
-                    'iwda': var_data['iwda_vol'] * 100,
-                    'btc': var_data['btc_vol'] * 100
-                },
-                'performance': {
-                    'expected_return': performance['expected_annual_return'] * 100,
-                    'expected_risk': performance['expected_annual_risk'] * 100,
-                    'sharpe_ratio': performance['sharpe_ratio']
-                }
-            },
-            
-            # Execution guidance
-            'execution': {
-                'timing': {
-                    'best_hours': ['14:30-16:30', '20:00-22:00'],
-                    'avoid_hours': ['12:00-14:00', '22:00-06:00'],
-                    'monthly_window': '15-25th of the month'
-                },
-                'order_tips': [
-                    'Use Good-til-Cancelled (GTC) for limit orders',
-                    'Monitor orders and adjust after 48 hours if unfilled',
-                    'Cancel unfilled orders after 5 trading days',
-                    'Split large orders into smaller chunks'
-                ]
-            },
-            
-            # Market analysis and warnings
-            'market_analysis': {
-                'regime_message': self._get_regime_message(allocation['regime']),
-                'btc_advice': self.get_btc_position_advice(regime_data['btc_fear_greed']),
-                'iwda_signals': allocation['iwda_signals']
+            'performance_forecast': performance,
+            'current_prices': {
+                'iwda_proxy': data['iwda']['Close'].iloc[-1],
+                'btc': data['btc']['Close'].iloc[-1],
+                'vix': data['vix']['Close'].iloc[-1]
             }
         }
 
-        # Still keep the print for debugging
-        self.display_ultimate_analysis(recommendation)
-        
         return recommendation
 
-    def _get_regime_message(self, regime):
-        """Generate regime-specific messages"""
-        messages = {
-            'CRYPTO_EXTREME_GREED': {
-                'warning': True,
-                'messages': [
-                    '🚨 Markets showing extreme greed - high risk of correction',
-                    '• Using defensive allocation with reduced exposure',
-                    '• Consider splitting purchases over multiple weeks'
-                ]
+    def convert_to_brussels_time(self, timestamp):
+        """Convert timestamp to Brussels time (CET/CEST)"""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        # Convert string timestamp to datetime object
+        dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+
+        # Convert to Brussels time
+        brussels_time = dt.astimezone(ZoneInfo("Europe/Brussels"))
+        return brussels_time.strftime('%Y-%m-%d %H:%M:%S %Z')
+
+    def display_ultimate_analysis(self, rec):
+        """Display clear investment instructions"""
+        print("\n" + "="*80)
+        print("💰 MONTHLY INVESTMENT RECOMMENDATION")
+        print("="*80)
+
+        # Current market conditions with Brussels time
+        brussels_time = self.convert_to_brussels_time(rec['timestamp'])
+        print(f"\n📊 MARKET CONDITIONS ({brussels_time}):")
+        print(f"• Market Regime: {rec['market_regime']['regime']}")
+        print(f"• S&P500 Fear & Greed: {rec['market_regime']['sp500_fear_greed']}/100")
+        print(f"• Bitcoin Fear & Greed: {rec['market_regime']['btc_fear_greed']}/100")
+        print(f"• USD/EUR Rate: {rec['market_regime']['usd_eur_rate']:.4f}")
+
+        # Clear investment instructions
+        print(f"\n🎯 INVESTMENT ACTIONS REQUIRED:")
+        print(f"1. IWDA ETF (DEGIRO):")
+        print(f"   → Buy: {rec['allocation']['iwda_shares']} shares")
+        print(f"   → Total Investment: €{rec['allocation']['iwda_amount']:,}")
+        print(f"   → Current Price: €{rec['current_prices']['iwda_proxy']:.2f}")
+
+        print(f"\n2. Bitcoin (Bitvavo):")
+        print(f"   → Invest: €{rec['allocation']['btc_amount']:,}")
+        print(f"   → Current Price: ${rec['current_prices']['btc']:,.0f}")
+        print(f"   → EUR Price: €{rec['current_prices']['btc'] * rec['market_regime']['usd_eur_rate']:,.0f}")
+
+        print(f"\n💡 EXECUTION INSTRUCTIONS:")
+        print(f"• Total to Invest This Month: €{rec['allocation']['total_investment']:,}")
+        print(f"• Number of Components: {rec['allocation']['component_count']}")
+        print(f"• Execute Between: 15-25th of the month")
+        print(f"• Use Limit Orders at Current Prices")
+
+        # Enhanced Risk Assessment
+        print(f"\n⚠️  RISK ASSESSMENT:")
+        print(f"• Portfolio Risk Level: {rec['market_regime']['regime']}")
+        print(f"• Value at Risk (95% confidence):")
+        print(f"  - IWDA: {rec['risk_metrics']['iwda_var_95']*100:.1f}% daily")
+        print(f"  - Bitcoin: {rec['risk_metrics']['btc_var_95']*100:.1f}% daily")
+        print(f"• Annual Volatility:")
+        print(f"  - IWDA: {rec['risk_metrics']['iwda_volatility']*100:.1f}%")
+        print(f"  - Bitcoin: {rec['risk_metrics']['btc_volatility']*100:.1f}%")
+        print(f"• Portfolio Metrics:")
+        print(f"  - Expected Return: {rec['performance_forecast']['expected_annual_return']*100:.1f}%")
+        print(f"  - Expected Risk: {rec['performance_forecast']['expected_annual_risk']*100:.1f}%")
+        print(f"  - Sharpe Ratio: {rec['performance_forecast']['sharpe_ratio']:.2f}")
+
+        # Market Specific Warnings
+        if rec['market_regime']['regime'] == "EXTREME_GREED":
+            print("\n🚨 RISK WARNINGS:")
+            print("  • Markets showing extreme greed - high risk of correction")
+            print("  • Using defensive allocation with reduced exposure")
+            print("  • Consider splitting purchases over multiple weeks")
+        elif rec['market_regime']['regime'] == "GREED":
+            print("\n🚨 RISK WARNINGS:")
+            print("  • Markets showing greed - elevated risk levels")
+            print("  • Bitcoin capped at €500 for risk management")
+            print("  • Consider using limit orders below market price")
+        elif rec['market_regime']['regime'] == "EXTREME_FEAR":
+            print("\n💡 OPPORTUNITY ALERT:")
+            print("  • Markets in extreme fear - potential buying opportunity")
+            print("  • Still maintain position sizing discipline")
+            print("  • Consider gradual scaling in over several days")
+
+        # Add Bitcoin-specific advice
+        btc_advice = self.get_btc_position_advice(rec['market_regime']['btc_fear_greed'])  # Changed this line
+        if btc_advice:
+            print("\n🔷 BITCOIN POSITION ADVICE:")
+            for msg in btc_advice['message']:
+                print(f"  {msg}")
+
+        # Add after current market conditions
+        if rec['allocation']['iwda_signals']['sp500_fear'] or \
+           rec['allocation']['iwda_signals']['vix_high'] or \
+           rec['allocation']['iwda_signals']['price_vs_ma']:
+            print("\n📈 IWDA MARKET SIGNALS:")
+            if rec['allocation']['iwda_signals']['sp500_fear']:
+                print("  • S&P500 showing fear - potential buying opportunity")
+            if rec['allocation']['iwda_signals']['vix_high']:
+                print("  • VIX elevated - market uncertainty high")
+            if rec['allocation']['iwda_signals']['price_vs_ma']:
+                print("  • IWDA trading below 200-day moving average")
+
+        # Add after risk assessment section
+        print("\n📍 SUGGESTED ORDER PLACEMENT:")
+        entry_points = self.analyze_optimal_entry_points(
+            {
+                'btc': rec['current_prices']['btc'],
+                'iwda': rec['current_prices']['iwda_proxy']
             },
-            'CRYPTO_EXTREME_FEAR': {
-                'warning': False,
-                'messages': [
-                    '💡 Markets in extreme fear - potential buying opportunity',
-                    '• Still maintain position sizing discipline',
-                    '• Consider gradual scaling in over several days'
-                ]
-            }
-            # Add other regimes as needed
-        }
-        return messages.get(regime, {'warning': False, 'messages': []})
+            rec['allocation']
+        )
 
-    def get_market_data_optimized(self):
-        """Fetch market data including Fear & Greed indices"""
-        try:
-            # Get IWDA and Bitcoin data
-            print("Fetching market prices...")
-            iwda = yf.Ticker("IWDA.AS")  # IWDA on Amsterdam exchange
-            btc = yf.Ticker("BTC-USD")
-            vix = yf.Ticker("^VIX")
-            usd_eur = yf.Ticker("EURUSD=X")
+        print("\nIWDA Orders:")
+        for order in entry_points['iwda_orders']:
+            print(f"  • {order['type']} Order: {order['size']}% @ €{order['price']:.2f} "
+                  f"({order['confidence']} confidence)")
 
-            # Get 2 years of data
-            period = "2y"
-            iwda_data = iwda.history(period=period)
-            btc_data = btc.history(period=period)
-            vix_data = vix.history(period=period)
-            usd_eur_data = usd_eur.history(period="1d")
+        print("\nBitcoin Orders:")
+        for order in entry_points['btc_orders']:
+            eur_price = order['price'] * rec['market_regime']['usd_eur_rate']
+            print(f"  • {order['type']} Order: {order['size']}% @ €{eur_price:.0f} "
+                  f"({order['confidence']} confidence)")
 
-            import requests
+        print("\n💡 ORDER EXECUTION TIPS:")
+        print("  • Use Good-til-Cancelled (GTC) for limit orders")
+        print("  • Place orders during high liquidity hours (14:30-22:00 CET)")
+        print("  • Monitor order fills and adjust if needed after 48 hours")
+        print("  • Consider cancelling unfilled orders after 5 trading days")
 
-            try:
-                # CNN Fear & Greed for S&P 500
-                print("Fetching S&P500 Fear & Greed Index...")
-                cnn_url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Accept': 'application/json'
-                }
-                cnn_response = requests.get(cnn_url, headers=headers)
-                cnn_data = cnn_response.json()
-                sp500_fear_greed = float(cnn_data['fear_and_greed']['score'])
-                print(f"S&P500 Fear & Greed: {sp500_fear_greed:.1f}")
+        print("\n" + "="*80)
+        return rec
 
-            except Exception as e:
-                print(f"CNN API error: {e}, using fallback calculation")
-                # Fallback calculation
-                sp500_fear_greed = 50  # Neutral stance if API fails
-
-            try:
-                # Alternative.me Fear & Greed for Bitcoin
-                print("Fetching Bitcoin Fear & Greed Index...")
-                crypto_url = "https://api.alternative.me/fng/?limit=1"
-                crypto_response = requests.get(crypto_url)
-                crypto_data = crypto_response.json()
-
-                # Extract value from the response
-                btc_fear_greed = float(crypto_data['data'][0]['value'])
-                print(f"Bitcoin Fear & Greed: {btc_fear_greed:.1f}")
-
-            except Exception as e:
-                print(f"Crypto API error: {e}, using fallback calculation")
-                btc_fear_greed = 50  # Neutral stance if API fails
-
-            # Get current USD/EUR rate (invert for correct conversion)
-            usd_eur_rate = 1 / usd_eur_data['Close'].iloc[-1]
-            print(f"USD/EUR Rate: {usd_eur_rate:.4f}")
-
+    def get_btc_position_advice(self, btc_fear_greed):
+        """Generate Bitcoin-specific position advice"""
+        if btc_fear_greed >= 80:
             return {
-                'iwda': iwda_data,
-                'btc': btc_data,
-                'vix': vix_data,
-                'sp500_fear_greed': sp500_fear_greed,
-                'btc_fear_greed': btc_fear_greed,
-                'usd_eur_rate': usd_eur_rate,
-                'fetch_time': datetime.now()
-            }
-
-        except Exception as e:
-            print(f"Critical data fetch error: {str(e)}")
-            return None
-
-    def calculate_statistical_regime(self, data):
-        """
-        Use actual Fear & Greed indices and handle USD/EUR conversion
-        """
-        # Get Fear & Greed scores (0-100 scale)
-        sp500_fear_greed = data['sp500_fear_greed']
-        btc_fear_greed = data['btc_fear_greed']
-
-        # Convert to z-scores (-3 to +3 scale approximately)
-        # 50 is neutral, 25 is fear, 75 is greed
-        sp500_zscore = (sp500_fear_greed - 50) / 25
-        btc_zscore = (btc_fear_greed - 50) / 25
-
-        # Get USD/EUR conversion for amount calculations
-        usd_eur_rate = data['usd_eur_rate']
-
-        # Calculate other metrics
-        iwda_prices = data['iwda']['Close']
-        btc_prices = data['btc']['Close']
-        vix_prices = data['vix']['Close']
-
-        # Price metrics vs moving averages
-        iwda_current = iwda_prices.iloc[-1]
-        iwda_ma200 = iwda_prices.rolling(200).mean().iloc[-1]
-
-        btc_current = btc_prices.iloc[-1]
-        btc_ma200 = btc_prices.rolling(200).mean().iloc[-1]
-
-        # VIX metrics
-        vix_current = vix_prices.iloc[-1]
-        vix_mean = vix_prices.rolling(252).mean().iloc[-1]
-        vix_std = vix_prices.rolling(252).std().iloc[-1]
-        vix_zscore = (vix_current - vix_mean) / vix_std
-
-        # Composite score using actual fear & greed indices
-        composite_score = (-sp500_zscore - btc_zscore + vix_zscore) / 3
-
-        return {
-            'composite_score': composite_score,
-            'sp500_fear_greed': sp500_fear_greed,
-            'btc_fear_greed': btc_fear_greed,
-            'vix_zscore': vix_zscore,
-            'iwda_vs_ma200': (iwda_current / iwda_ma200 - 1) * 100,
-            'btc_vs_ma200': (btc_current / btc_ma200 - 1) * 100,
-            'vix_level': vix_current,
-            'usd_eur_rate': usd_eur_rate
-        }
-
-    def calculate_kelly_criterion(self, data):
-        """
-        Kelly Criterion: Mathematically optimal bet sizing
-        f = (bp - q) / b
-        where f = fraction to bet, b = odds, p = win probability, q = loss probability
-        """
-        iwda_returns = data['iwda']['Close'].pct_change().dropna()
-        btc_returns = data['btc']['Close'].pct_change().dropna()
-
-        # Calculate historical statistics
-        iwda_mean = iwda_returns.mean() * 252  # Annualized
-        iwda_std = iwda_returns.std() * np.sqrt(252)
-        iwda_sharpe = iwda_mean / iwda_std if iwda_std > 0 else 0
-
-        btc_mean = btc_returns.mean() * 252
-        btc_std = btc_returns.std() * np.sqrt(252)
-        btc_sharpe = btc_mean / btc_std if btc_std > 0 else 0
-
-        # Kelly fraction for each asset
-        iwda_kelly = iwda_sharpe / iwda_std if iwda_std > 0 else 0
-        btc_kelly = btc_sharpe / btc_std if btc_std > 0 else 0
-
-        # Cap Kelly fractions (Kelly can be aggressive)
-        iwda_kelly = min(iwda_kelly, self.max_kelly_fraction)
-        btc_kelly = min(btc_kelly, self.max_kelly_fraction)
-
-        return {
-            'iwda_kelly': iwda_kelly,
-            'btc_kelly': btc_kelly,
-            'iwda_sharpe': iwda_sharpe,
-            'btc_sharpe': btc_sharpe
-        }
-
-    def calculate_value_at_risk(self, data, confidence_level=0.95):
-        """
-        Value at Risk: Maximum expected loss at given confidence level
-        Used to size positions appropriately
-        """
-        iwda_returns = data['iwda']['Close'].pct_change().dropna().tail(252)
-        btc_returns = data['btc']['Close'].pct_change().dropna().tail(252)
-
-        # Calculate VaR
-        iwda_var = np.percentile(iwda_returns, (1 - confidence_level) * 100)
-        btc_var = np.percentile(btc_returns, (1 - confidence_level) * 100)
-
-        return {
-            'iwda_var': iwda_var,
-            'btc_var': btc_var,
-            'iwda_vol': iwda_returns.std() * np.sqrt(252),
-            'btc_vol': btc_returns.std() * np.sqrt(252)
-        }
-
-    def optimize_portfolio_allocation(self, regime_data, kelly_data, var_data, data):
-        # Base allocation (keep IWDA stable, vary BTC more aggressively)
-        btc_fear_greed = regime_data['btc_fear_greed']
-        sp500_fear_greed = regime_data['sp500_fear_greed']
-
-        # Default allocations (67% IWDA, 33% BTC)
-        iwda_allocation = 0.67
-        btc_allocation = 0.33
-
-        # Bitcoin-specific multipliers based on crypto fear & greed
-        if btc_fear_greed >= 80:  # Extreme greed (80-100)
-            scale_factor = (btc_fear_greed - 80) / 20
-            btc_multiplier = 0.2 + (scale_factor * 0.2)  # 0.2-0.4 range
-            btc_max = 200
-            regime = "CRYPTO_EXTREME_GREED"
-            print("🚨 CRYPTO WARNING: Consider taking profits on existing positions")
-
-        elif btc_fear_greed >= 60:  # Greed (60-79)
-            scale_factor = (btc_fear_greed - 60) / 20
-            btc_multiplier = 0.4 + (scale_factor * 0.2)  # 0.4-0.6 range
-            btc_max = 300
-            regime = "CRYPTO_GREED"
-
-        elif btc_fear_greed >= 40:  # Neutral (40-59)
-            scale_factor = (btc_fear_greed - 40) / 20
-            btc_multiplier = 0.6 + (scale_factor * 0.2)  # 0.6-0.8 range
-            btc_max = 400
-            regime = "CRYPTO_NEUTRAL"
-
-        elif btc_fear_greed >= 20:  # Fear (20-39)
-            scale_factor = (20 - btc_fear_greed) / 20
-            btc_multiplier = 0.8 + (scale_factor * 0.7)  # 0.8-1.5 range
-            btc_max = None  # Remove cap during fear
-            regime = "CRYPTO_FEAR"
-
-        else:  # Extreme fear (0-19)
-            scale_factor = (20 - btc_fear_greed) / 20
-            btc_multiplier = 1.5 + (scale_factor * 1.0)  # 1.5-2.5 range
-            btc_max = None  # No cap during extreme fear
-            regime = "CRYPTO_EXTREME_FEAR"
-            print("💡 CRYPTO OPPORTUNITY: Maximum buying opportunity")
-
-        # Calculate BTC target amount
-        btc_target = round(self.monthly_target * btc_multiplier * btc_allocation, 2)
-        btc_target = min(btc_target, btc_max)  # Apply cap
-
-        # IWDA signals
-        iwda_signals = {
-            'sp500_fear': sp500_fear_greed <= 35,
-            'vix_high': regime_data['vix_level'] > 25,
-            'price_vs_ma': regime_data['iwda_vs_ma200'] < -5,  # 5% onder MA200
-        }
-
-        # IWDA multiplier logic (geoptimaliseerde ranges)
-        if sp500_fear_greed >= 80:  # Extreme greed (80-100)
-            scale_factor = (sp500_fear_greed - 80) / 20
-            iwda_multiplier = 0.2 + (scale_factor * 0.2)  # 0.2-0.4 range
-            iwda_message = "⚠️ IWDA WARNING: Extreme market greed - minimal exposure"
-
-        elif sp500_fear_greed >= 60:  # Greed (60-79)
-            scale_factor = (sp500_fear_greed - 60) / 20
-            iwda_multiplier = 0.4 + (scale_factor * 0.2)  # 0.4-0.6 range
-            iwda_message = "⚠️ IWDA CAUTION: Market showing greed - reduced exposure"
-
-        elif sp500_fear_greed >= 40:  # Neutral (40-59)
-            scale_factor = (sp500_fear_greed - 40) / 20
-            iwda_multiplier = 0.6 + (scale_factor * 0.2)  # 0.6-0.8 range
-            iwda_message = "ℹ️ IWDA: Neutral market conditions - moderate exposure"
-
-        elif sp500_fear_greed >= 20:  # Fear (20-39)
-            scale_factor = (20 - sp500_fear_greed) / 20
-            iwda_multiplier = 0.8 + (scale_factor * 0.5)  # 0.8-1.3 range
-            iwda_message = "💡 IWDA OPPORTUNITY: Market fear - increased exposure"
-
-        else:  # Extreme fear (0-19)
-            scale_factor = (20 - sp500_fear_greed) / 20
-            iwda_multiplier = 1.3 + (scale_factor * 0.7)  # 1.3-2.0 range
-            iwda_message = "💡 IWDA OPPORTUNITY: Extreme market fear - significant allocation increase"
-
-        # Calculate IWDA target
-        iwda_target = round(self.monthly_target * iwda_multiplier * iwda_allocation, 2)
-
-        # Calculate IWDA shares
-        iwda_shares, iwda_amount = self.calculate_iwda_shares(
-            iwda_target,
-            data['iwda']['Close'].iloc[-1]
-        )
-
-        if iwda_message:
-            print(iwda_message)
-
-        return {
-            'iwda_amount': iwda_amount,
-            'iwda_shares': iwda_shares,
-            'iwda_signals': iwda_signals,
-            'btc_amount': int(btc_target),
-            'total_investment': int(iwda_amount + btc_target),
-            'regime': regime,
-            'btc_fear_greed_level': btc_fear_greed,
-            'component_count': 2,
-            'kelly_optimization': {
-                'iwda_weight': iwda_allocation,
-                'btc_weight': btc_allocation,
-                'iwda_kelly': kelly_data['iwda_kelly'],
-                'btc_kelly': kelly_data['btc_kelly']
-            }
-        }
-
-    def calculate_iwda_shares(self, target_amount, price):
-        """
-        Bereken IWDA shares met consistente afronding
-        """
-        # Rond eerst de prijs af op 2 decimalen
-        price = round(float(price), 2)
-
-        # Bereken shares en rond NAAR BENEDEN af (conservatief)
-        shares = int(target_amount / price)
-
-        # Bereken het exacte bedrag
-        actual_amount = round(shares * price, 2)
-
-        return shares, actual_amount
-
-    def calculate_expected_returns(self, allocation, var_data):
-        """Calculate expected returns and risk metrics"""
-        # Portfolio expected return (simplified)
-        portfolio_weights = np.array([allocation['kelly_optimization']['iwda_weight'],
-                                    allocation['kelly_optimization']['btc_weight']])
-
-        # Expected annual returns (historical averages)
-        expected_returns = np.array([0.08, 0.15])  # 8% IWDA, 15% BTC historical
-
-        portfolio_return = np.dot(portfolio_weights, expected_returns)
-
-        # Portfolio risk (simplified - assumes some correlation)
-        portfolio_risk = np.sqrt(
-            (portfolio_weights[0] ** 2) * (var_data['iwda_vol'] ** 2) +
-            (portfolio_weights[1] ** 2) * (var_data['btc_vol'] ** 2) +
-            2 * portfolio_weights[0] * portfolio_weights[1] *
-            var_data['iwda_vol'] * var_data['btc_vol'] * 0.3  # Assume 30% correlation
-        )
-
-        sharpe_ratio = portfolio_return / portfolio_risk if portfolio_risk > 0 else 0
-
-        return {
-            'expected_annual_return': portfolio_return,
-            'expected_annual_risk': portfolio_risk,
-            'sharpe_ratio': sharpe_ratio
-        }
-
-    def generate_ultimate_recommendation(self):
-        """Generate the ultimate quantitative recommendation"""
-        print("🧮 ULTIMATE QUANTITATIVE ANALYSIS INITIATED...")
-        
-        # Get market data
-        data = self.get_market_data_optimized()
-        if not data:
-            return None
-
-        # Calculate all metrics
-        regime_data = self.calculate_statistical_regime(data)
-        kelly_data = self.calculate_kelly_criterion(data)
-        var_data = self.calculate_value_at_risk(data)
-        allocation = self.optimize_portfolio_allocation(regime_data, kelly_data, var_data, data)
-        performance = self.calculate_expected_returns(allocation, var_data)
-        entry_points = self.analyze_optimal_entry_points(
-            {
-                'btc': data['btc']['Close'].iloc[-1],
-                'iwda': data['iwda']['Close'].iloc[-1]
-            },
-            allocation
-        )
-
-        # Calculate EUR price for Bitcoin
-        btc_eur_price = data['btc']['Close'].iloc[-1] * data['usd_eur_rate']
-
-        # Generate comprehensive recommendation dictionary
-        recommendation = {
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'brussels_time': self.convert_to_brussels_time(datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-            
-            # Market conditions
-            'market_regime': {
-                'regime': allocation['regime'],
-                'sp500_fear_greed': regime_data['sp500_fear_greed'],
-                'btc_fear_greed': regime_data['btc_fear_greed'],
-                'vix_level': regime_data['vix_level'],
-                'usd_eur_rate': data['usd_eur_rate'],
-                'iwda_vs_ma200': regime_data['iwda_vs_ma200'],
-                'btc_vs_ma200': regime_data['btc_vs_ma200']
-            },
-            
-            # Investment details
-            'allocation': {
-                'total_amount': allocation['total_investment'],
-                'component_count': allocation['component_count'],
-                'iwda': {
-                    'shares': allocation['iwda_shares'],
-                    'amount': allocation['iwda_amount'],
-                    'current_price': data['iwda']['Close'].iloc[-1],
-                    'orders': entry_points['iwda_orders']
-                },
-                'bitcoin': {
-                    'amount': allocation['btc_amount'],
-                    'current_price_usd': data['btc']['Close'].iloc[-1],
-                    'current_price_eur': btc_eur_price,
-                    'orders': entry_points['btc_orders']
-                }
-            },
-            
-            # Risk metrics
-            'risk_analysis': {
-                'value_at_risk': {
-                    'iwda': var_data['iwda_var'] * 100,
-                    'btc': var_data['btc_var'] * 100
-                },
-                'volatility': {
-                    'iwda': var_data['iwda_vol'] * 100,
-                    'btc': var_data['btc_vol'] * 100
-                },
-                'performance': {
-                    'expected_return': performance['expected_annual_return'] * 100,
-                    'expected_risk': performance['expected_annual_risk'] * 100,
-                    'sharpe_ratio': performance['sharpe_ratio']
-                }
-            },
-            
-            # Execution guidance
-            'execution': {
-                'timing': {
-                    'best_hours': ['14:30-16:30', '20:00-22:00'],
-                    'avoid_hours': ['12:00-14:00', '22:00-06:00'],
-                    'monthly_window': '15-25th of the month'
-                },
-                'order_tips': [
-                    'Use Good-til-Cancelled (GTC) for limit orders',
-                    'Monitor orders and adjust after 48 hours if unfilled',
-                    'Cancel unfilled orders after 5 trading days',
-                    'Split large orders into smaller chunks'
-                ]
-            },
-            
-            # Market analysis and warnings
-            'market_analysis': {
-                'regime_message': self._get_regime_message(allocation['regime']),
-                'btc_advice': self.get_btc_position_advice(regime_data['btc_fear_greed']),
-                'iwda_signals': allocation['iwda_signals']
-            }
-        }
-
-        # Still keep the print for debugging
-        self.display_ultimate_analysis(recommendation)
-        
-        return recommendation
-
-    def _get_regime_message(self, regime):
-        """Generate regime-specific messages"""
-        messages = {
-            'CRYPTO_EXTREME_GREED': {
-                'warning': True,
-                'messages': [
-                    '🚨 Markets showing extreme greed - high risk of correction',
-                    '• Using defensive allocation with reduced exposure',
-                    '• Consider splitting purchases over multiple weeks'
-                ]
-            },
-            'CRYPTO_EXTREME_FEAR': {
-                'warning': False,
-                'messages': [
-                    '💡 Markets in extreme fear - potential buying opportunity',
-                    '• Still maintain position sizing discipline',
-                    '• Consider gradual scaling in over several days'
+                'action': 'TAKE_PROFIT',
+                'message': [
+                    "🚨 BITCOIN EXTREME GREED ALERT:",
+                    "• Consider taking partial profits (20-30%) on existing positions",
+                    "• Set trailing stop losses on remaining position",
+                    "• Minimal new investment recommended"
                 ]
             }
-            # Add other regimes as needed
-        }
-        return messages.get(regime, {'warning': False, 'messages': []})
-
-    def load_performance_data(self):
-        """Load historical strategy performance for optimization"""
-        try:
-            with open('strategy_performance.json', 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {"monthly_returns": [], "strategy_stats": {}}
-
-    def get_market_data_optimized(self):
-        """Fetch market data including Fear & Greed indices"""
-        try:
-            # Get IWDA and Bitcoin data
-            print("Fetching market prices...")
-            iwda = yf.Ticker("IWDA.AS")  # IWDA on Amsterdam exchange
-            btc = yf.Ticker("BTC-USD")
-            vix = yf.Ticker("^VIX")
-            usd_eur = yf.Ticker("EURUSD=X")
-
-            # Get 2 years of data
-            period = "2y"
-            iwda_data = iwda.history(period=period)
-            btc_data = btc.history(period=period)
-            vix_data = vix.history(period=period)
-            usd_eur_data = usd_eur.history(period="1d")
-
-            import requests
-
-            try:
-                # CNN Fear & Greed for S&P 500
-                print("Fetching S&P500 Fear & Greed Index...")
-                cnn_url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Accept': 'application/json'
-                }
-                cnn_response = requests.get(cnn_url, headers=headers)
-                cnn_data = cnn_response.json()
-                sp500_fear_greed = float(cnn_data['fear_and_greed']['score'])
-                print(f"S&P500 Fear & Greed: {sp500_fear_greed:.1f}")
-
-            except Exception as e:
-                print(f"CNN API error: {e}, using fallback calculation")
-                # Fallback calculation
-                sp500_fear_greed = 50  # Neutral stance if API fails
-
-            try:
-                # Alternative.me Fear & Greed for Bitcoin
-                print("Fetching Bitcoin Fear & Greed Index...")
-                crypto_url = "https://api.alternative.me/fng/?limit=1"
-                crypto_response = requests.get(crypto_url)
-                crypto_data = crypto_response.json()
-
-                # Extract value from the response
-                btc_fear_greed = float(crypto_data['data'][0]['value'])
-                print(f"Bitcoin Fear & Greed: {btc_fear_greed:.1f}")
-
-            except Exception as e:
-                print(f"Crypto API error: {e}, using fallback calculation")
-                btc_fear_greed = 50  # Neutral stance if API fails
-
-            # Get current USD/EUR rate (invert for correct conversion)
-            usd_eur_rate = 1 / usd_eur_data['Close'].iloc[-1]
-            print(f"USD/EUR Rate: {usd_eur_rate:.4f}")
-
+        elif btc_fear_greed <= 20:
             return {
-                'iwda': iwda_data,
-                'btc': btc_data,
-                'vix': vix_data,
-                'sp500_fear_greed': sp500_fear_greed,
-                'btc_fear_greed': btc_fear_greed,
-                'usd_eur_rate': usd_eur_rate,
-                'fetch_time': datetime.now()
-            }
-
-        except Exception as e:
-            print(f"Critical data fetch error: {str(e)}")
-            return None
-
-    def calculate_statistical_regime(self, data):
-        """
-        Use actual Fear & Greed indices and handle USD/EUR conversion
-        """
-        # Get Fear & Greed scores (0-100 scale)
-        sp500_fear_greed = data['sp500_fear_greed']
-        btc_fear_greed = data['btc_fear_greed']
-
-        # Convert to z-scores (-3 to +3 scale approximately)
-        # 50 is neutral, 25 is fear, 75 is greed
-        sp500_zscore = (sp500_fear_greed - 50) / 25
-        btc_zscore = (btc_fear_greed - 50) / 25
-
-        # Get USD/EUR conversion for amount calculations
-        usd_eur_rate = data['usd_eur_rate']
-
-        # Calculate other metrics
-        iwda_prices = data['iwda']['Close']
-        btc_prices = data['btc']['Close']
-        vix_prices = data['vix']['Close']
-
-        # Price metrics vs moving averages
-        iwda_current = iwda_prices.iloc[-1]
-        iwda_ma200 = iwda_prices.rolling(200).mean().iloc[-1]
-
-        btc_current = btc_prices.iloc[-1]
-        btc_ma200 = btc_prices.rolling(200).mean().iloc[-1]
-
-        # VIX metrics
-        vix_current = vix_prices.iloc[-1]
-        vix_mean = vix_prices.rolling(252).mean().iloc[-1]
-        vix_std = vix_prices.rolling(252).std().iloc[-1]
-        vix_zscore = (vix_current - vix_mean) / vix_std
-
-        # Composite score using actual fear & greed indices
-        composite_score = (-sp500_zscore - btc_zscore + vix_zscore) / 3
-
-        return {
-            'composite_score': composite_score,
-            'sp500_fear_greed': sp500_fear_greed,
-            'btc_fear_greed': btc_fear_greed,
-            'vix_zscore': vix_zscore,
-            'iwda_vs_ma200': (iwda_current / iwda_ma200 - 1) * 100,
-            'btc_vs_ma200': (btc_current / btc_ma200 - 1) * 100,
-            'vix_level': vix_current,
-            'usd_eur_rate': usd_eur_rate
-        }
-
-    def calculate_kelly_criterion(self, data):
-        """
-        Kelly Criterion: Mathematically optimal bet sizing
-        f = (bp - q) / b
-        where f = fraction to bet, b = odds, p = win probability, q = loss probability
-        """
-        iwda_returns = data['iwda']['Close'].pct_change().dropna()
-        btc_returns = data['btc']['Close'].pct_change().dropna()
-
-        # Calculate historical statistics
-        iwda_mean = iwda_returns.mean() * 252  # Annualized
-        iwda_std = iwda_returns.std() * np.sqrt(252)
-        iwda_sharpe = iwda_mean / iwda_std if iwda_std > 0 else 0
-
-        btc_mean = btc_returns.mean() * 252
-        btc_std = btc_returns.std() * np.sqrt(252)
-        btc_sharpe = btc_mean / btc_std if btc_std > 0 else 0
-
-        # Kelly fraction for each asset
-        iwda_kelly = iwda_sharpe / iwda_std if iwda_std > 0 else 0
-        btc_kelly = btc_sharpe / btc_std if btc_std > 0 else 0
-
-        # Cap Kelly fractions (Kelly can be aggressive)
-        iwda_kelly = min(iwda_kelly, self.max_kelly_fraction)
-        btc_kelly = min(btc_kelly, self.max_kelly_fraction)
-
-        return {
-            'iwda_kelly': iwda_kelly,
-            'btc_kelly': btc_kelly,
-            'iwda_sharpe': iwda_sharpe,
-            'btc_sharpe': btc_sharpe
-        }
-
-    def calculate_value_at_risk(self, data, confidence_level=0.95):
-        """
-        Value at Risk: Maximum expected loss at given confidence level
-        Used to size positions appropriately
-        """
-        iwda_returns = data['iwda']['Close'].pct_change().dropna().tail(252)
-        btc_returns = data['btc']['Close'].pct_change().dropna().tail(252)
-
-        # Calculate VaR
-        iwda_var = np.percentile(iwda_returns, (1 - confidence_level) * 100)
-        btc_var = np.percentile(btc_returns, (1 - confidence_level) * 100)
-
-        return {
-            'iwda_var': iwda_var,
-            'btc_var': btc_var,
-            'iwda_vol': iwda_returns.std() * np.sqrt(252),
-            'btc_vol': btc_returns.std() * np.sqrt(252)
-        }
-
-    def optimize_portfolio_allocation(self, regime_data, kelly_data, var_data, data):
-        # Base allocation (keep IWDA stable, vary BTC more aggressively)
-        btc_fear_greed = regime_data['btc_fear_greed']
-        sp500_fear_greed = regime_data['sp500_fear_greed']
-
-        # Default allocations (67% IWDA, 33% BTC)
-        iwda_allocation = 0.67
-        btc_allocation = 0.33
-
-        # Bitcoin-specific multipliers based on crypto fear & greed
-        if btc_fear_greed >= 80:  # Extreme greed (80-100)
-            scale_factor = (btc_fear_greed - 80) / 20
-            btc_multiplier = 0.2 + (scale_factor * 0.2)  # 0.2-0.4 range
-            btc_max = 200
-            regime = "CRYPTO_EXTREME_GREED"
-            print("🚨 CRYPTO WARNING: Consider taking profits on existing positions")
-
-        elif btc_fear_greed >= 60:  # Greed (60-79)
-            scale_factor = (btc_fear_greed - 60) / 20
-            btc_multiplier = 0.4 + (scale_factor * 0.2)  # 0.4-0.6 range
-            btc_max = 300
-            regime = "CRYPTO_GREED"
-
-        elif btc_fear_greed >= 40:  # Neutral (40-59)
-            scale_factor = (btc_fear_greed - 40) / 20
-            btc_multiplier = 0.6 + (scale_factor * 0.2)  # 0.6-0.8 range
-            btc_max = 400
-            regime = "CRYPTO_NEUTRAL"
-
-        elif btc_fear_greed >= 20:  # Fear (20-39)
-            scale_factor = (20 - btc_fear_greed) / 20
-            btc_multiplier = 0.8 + (scale_factor * 0.7)  # 0.8-1.5 range
-            btc_max = None  # Remove cap during fear
-            regime = "CRYPTO_FEAR"
-
-        else:  # Extreme fear (0-19)
-            scale_factor = (20 - btc_fear_greed) / 20
-            btc_multiplier = 1.5 + (scale_factor * 1.0)  # 1.5-2.5 range
-            btc_max = None  # No cap during extreme fear
-            regime = "CRYPTO_EXTREME_FEAR"
-            print("💡 CRYPTO OPPORTUNITY: Maximum buying opportunity")
-
-        # Calculate BTC target amount
-        btc_target = round(self.monthly_target * btc_multiplier * btc_allocation, 2)
-        btc_target = min(btc_target, btc_max)  # Apply cap
-
-        # IWDA signals
-        iwda_signals = {
-            'sp500_fear': sp500_fear_greed <= 35,
-            'vix_high': regime_data['vix_level'] > 25,
-            'price_vs_ma': regime_data['iwda_vs_ma200'] < -5,  # 5% onder MA200
-        }
-
-        # IWDA multiplier logic (geoptimaliseerde ranges)
-        if sp500_fear_greed >= 80:  # Extreme greed (80-100)
-            scale_factor = (sp500_fear_greed - 80) / 20
-            iwda_multiplier = 0.2 + (scale_factor * 0.2)  # 0.2-0.4 range
-            iwda_message = "⚠️ IWDA WARNING: Extreme market greed - minimal exposure"
-
-        elif sp500_fear_greed >= 60:  # Greed (60-79)
-            scale_factor = (sp500_fear_greed - 60) / 20
-            iwda_multiplier = 0.4 + (scale_factor * 0.2)  # 0.4-0.6 range
-            iwda_message = "⚠️ IWDA CAUTION: Market showing greed - reduced exposure"
-
-        elif sp500_fear_greed >= 40:  # Neutral (40-59)
-            scale_factor = (sp500_fear_greed - 40) / 20
-            iwda_multiplier = 0.6 + (scale_factor * 0.2)  # 0.6-0.8 range
-            iwda_message = "ℹ️ IWDA: Neutral market conditions - moderate exposure"
-
-        elif sp500_fear_greed >= 20:  # Fear (20-39)
-            scale_factor = (20 - sp500_fear_greed) / 20
-            iwda_multiplier = 0.8 + (scale_factor * 0.5)  # 0.8-1.3 range
-            iwda_message = "💡 IWDA OPPORTUNITY: Market fear - increased exposure"
-
-        else:  # Extreme fear (0-19)
-            scale_factor = (20 - sp500_fear_greed) / 20
-            iwda_multiplier = 1.3 + (scale_factor * 0.7)  # 1.3-2.0 range
-            iwda_message = "💡 IWDA OPPORTUNITY: Extreme market fear - significant allocation increase"
-
-        # Calculate IWDA target
-        iwda_target = round(self.monthly_target * iwda_multiplier * iwda_allocation, 2)
-
-        # Calculate IWDA shares
-        iwda_shares, iwda_amount = self.calculate_iwda_shares(
-            iwda_target,
-            data['iwda']['Close'].iloc[-1]
-        )
-
-        if iwda_message:
-            print(iwda_message)
-
-        return {
-            'iwda_amount': iwda_amount,
-            'iwda_shares': iwda_shares,
-            'iwda_signals': iwda_signals,
-            'btc_amount': int(btc_target),
-            'total_investment': int(iwda_amount + btc_target),
-            'regime': regime,
-            'btc_fear_greed_level': btc_fear_greed,
-            'component_count': 2,
-            'kelly_optimization': {
-                'iwda_weight': iwda_allocation,
-                'btc_weight': btc_allocation,
-                'iwda_kelly': kelly_data['iwda_kelly'],
-                'btc_kelly': kelly_data['btc_kelly']
-            }
-        }
-
-    def calculate_iwda_shares(self, target_amount, price):
-        """
-        Bereken IWDA shares met consistente afronding
-        """
-        # Rond eerst de prijs af op 2 decimalen
-        price = round(float(price), 2)
-
-        # Bereken shares en rond NAAR BENEDEN af (conservatief)
-        shares = int(target_amount / price)
-
-        # Bereken het exacte bedrag
-        actual_amount = round(shares * price, 2)
-
-        return shares, actual_amount
-
-    def calculate_expected_returns(self, allocation, var_data):
-        """Calculate expected returns and risk metrics"""
-        # Portfolio expected return (simplified)
-        portfolio_weights = np.array([allocation['kelly_optimization']['iwda_weight'],
-                                    allocation['kelly_optimization']['btc_weight']])
-
-        # Expected annual returns (historical averages)
-        expected_returns = np.array([0.08, 0.15])  # 8% IWDA, 15% BTC historical
-
-        portfolio_return = np.dot(portfolio_weights, expected_returns)
-
-        # Portfolio risk (simplified - assumes some correlation)
-        portfolio_risk = np.sqrt(
-            (portfolio_weights[0] ** 2) * (var_data['iwda_vol'] ** 2) +
-            (portfolio_weights[1] ** 2) * (var_data['btc_vol'] ** 2) +
-            2 * portfolio_weights[0] * portfolio_weights[1] *
-            var_data['iwda_vol'] * var_data['btc_vol'] * 0.3  # Assume 30% correlation
-        )
-
-        sharpe_ratio = portfolio_return / portfolio_risk if portfolio_risk > 0 else 0
-
-        return {
-            'expected_annual_return': portfolio_return,
-            'expected_annual_risk': portfolio_risk,
-            'sharpe_ratio': sharpe_ratio
-        }
-
-    def generate_ultimate_recommendation(self):
-        """Generate the ultimate quantitative recommendation"""
-        print("🧮 ULTIMATE QUANTITATIVE ANALYSIS INITIATED...")
-        
-        # Get market data
-        data = self.get_market_data_optimized()
-        if not data:
-            return None
-
-        # Calculate all metrics
-        regime_data = self.calculate_statistical_regime(data)
-        kelly_data = self.calculate_kelly_criterion(data)
-        var_data = self.calculate_value_at_risk(data)
-        allocation = self.optimize_portfolio_allocation(regime_data, kelly_data, var_data, data)
-        performance = self.calculate_expected_returns(allocation, var_data)
-        entry_points = self.analyze_optimal_entry_points(
-            {
-                'btc': data['btc']['Close'].iloc[-1],
-                'iwda': data['iwda']['Close'].iloc[-1]
-            },
-            allocation
-        )
-
-        # Calculate EUR price for Bitcoin
-        btc_eur_price = data['btc']['Close'].iloc[-1] * data['usd_eur_rate']
-
-        # Generate comprehensive recommendation dictionary
-        recommendation = {
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'brussels_time': self.convert_to_brussels_time(datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-            
-            # Market conditions
-            'market_regime': {
-                'regime': allocation['regime'],
-                'sp500_fear_greed': regime_data['sp500_fear_greed'],
-                'btc_fear_greed': regime_data['btc_fear_greed'],
-                'vix_level': regime_data['vix_level'],
-                'usd_eur_rate': data['usd_eur_rate'],
-                'iwda_vs_ma200': regime_data['iwda_vs_ma200'],
-                'btc_vs_ma200': regime_data['btc_vs_ma200']
-            },
-            
-            # Investment details
-            'allocation': {
-                'total_amount': allocation['total_investment'],
-                'component_count': allocation['component_count'],
-                'iwda': {
-                    'shares': allocation['iwda_shares'],
-                    'amount': allocation['iwda_amount'],
-                    'current_price': data['iwda']['Close'].iloc[-1],
-                    'orders': entry_points['iwda_orders']
-                },
-                'bitcoin': {
-                    'amount': allocation['btc_amount'],
-                    'current_price_usd': data['btc']['Close'].iloc[-1],
-                    'current_price_eur': btc_eur_price,
-                    'orders': entry_points['btc_orders']
-                }
-            },
-            
-            # Risk metrics
-            'risk_analysis': {
-                'value_at_risk': {
-                    'iwda': var_data['iwda_var'] * 100,
-                    'btc': var_data['btc_var'] * 100
-                },
-                'volatility': {
-                    'iwda': var_data['iwda_vol'] * 100,
-                    'btc': var_data['btc_vol'] * 100
-                },
-                'performance': {
-                    'expected_return': performance['expected_annual_return'] * 100,
-                    'expected_risk': performance['expected_annual_risk'] * 100,
-                    'sharpe_ratio': performance['sharpe_ratio']
-                }
-            },
-            
-            # Execution guidance
-            'execution': {
-                'timing': {
-                    'best_hours': ['14:30-16:30', '20:00-22:00'],
-                    'avoid_hours': ['12:00-14:00', '22:00-06:00'],
-                    'monthly_window': '15-25th of the month'
-                },
-                'order_tips': [
-                    'Use Good-til-Cancelled (GTC) for limit orders',
-                    'Monitor orders and adjust after 48 hours if unfilled',
-                    'Cancel unfilled orders after 5 trading days',
-                    'Split large orders into smaller chunks'
-                ]
-            },
-            
-            # Market analysis and warnings
-            'market_analysis': {
-                'regime_message': self._get_regime_message(allocation['regime']),
-                'btc_advice': self.get_btc_position_advice(regime_data['btc_fear_greed']),
-                'iwda_signals': allocation['iwda_signals']
-            }
-        }
-
-        # Still keep the print for debugging
-        self.display_ultimate_analysis(recommendation)
-        
-        return recommendation
-
-    def _get_regime_message(self, regime):
-        """Generate regime-specific messages"""
-        messages = {
-            'CRYPTO_EXTREME_GREED': {
-                'warning': True,
-                'messages': [
-                    '🚨 Markets showing extreme greed - high risk of correction',
-                    '• Using defensive allocation with reduced exposure',
-                    '• Consider splitting purchases over multiple weeks'
-                ]
-            },
-            'CRYPTO_EXTREME_FEAR': {
-                'warning': False,
-                'messages': [
-                    '💡 Markets in extreme fear - potential buying opportunity',
-                    '• Still maintain position sizing discipline',
-                    '• Consider gradual scaling in over several days'
+                'action': 'ACCUMULATE',
+                'message': [
+                    "💰 BITCOIN OPPORTUNITY ALERT:",
+                    "• Significant fear presents buying opportunity",
+                    "• Consider scaling in over several days",
+                    "• Increased position size recommended"
                 ]
             }
-            # Add other regimes as needed
+        return None
+
+    def analyze_optimal_entry_points(self, prices, allocation):
+        """Analyze optimal entry points based on liquidity zones and market structure"""
+        btc_current = prices['btc']  # Now expecting a simple price value
+        iwda_current = prices['iwda']  # Now expecting a simple price value
+
+        def calculate_zones(current_price, volatility_factor=0.02):
+            """Calculate price zones based on current price and volatility"""
+            return {
+                'support_1': current_price * (1 - volatility_factor),
+                'support_2': current_price * (1 - volatility_factor * 2),
+                'resistance_1': current_price * (1 + volatility_factor),
+                'resistance_2': current_price * (1 + volatility_factor * 2)
+            }
+
+        btc_zones = calculate_zones(btc_current, 0.03)  # Higher volatility for BTC
+        iwda_zones = calculate_zones(iwda_current, 0.01)  # Lower volatility for IWDA
+
+        def get_order_strategy(current_price, zones, asset_type):
+            # Base order distribution
+            if asset_type == 'BTC':
+                chunks = 4 if allocation['regime'] in ['CRYPTO_EXTREME_FEAR', 'CRYPTO_FEAR'] else 2
+            else:
+                chunks = 3 if allocation['iwda_signals']['sp500_fear'] else 2
+
+            orders = []
+
+            # Market order at current price
+            market_order = {
+                'price': round(current_price, 2),
+                'size': round(100/chunks, 1),
+                'type': 'Market',
+                'confidence': 'High'
+            }
+
+            # Limit order at first support
+            support_1_order = {
+                'price': round(zones['support_1'], 2),
+                'size': round(100/chunks, 1),
+                'type': 'Limit',
+                'confidence': 'High'
+            }
+
+            # Limit order at second support
+            support_2_order = {
+                'price': round(zones['support_2'], 2),
+                'size': round(100/chunks, 1),
+                'type': 'Limit',
+                'confidence': 'Medium'
+            }
+
+            orders.extend([market_order, support_1_order, support_2_order])
+            return orders
+
+        return {
+            'btc_orders': get_order_strategy(btc_current, btc_zones, 'BTC'),
+            'iwda_orders': get_order_strategy(iwda_current, iwda_zones, 'IWDA'),
+            'btc_zones': btc_zones,
+            'iwda_zones': iwda_zones
         }
-        return messages.get(regime, {'warning': False, 'messages': []})
 
     def calculate_adaptive_volatility(self, data, window=21):
         """Dynamische volatiliteit op basis van recente marktcondities"""
@@ -1460,7 +692,7 @@ class UltimateQuantStrategy:
         min_volume = self.risk_limits['min_liquidity']
         iwda_volume = data['iwda']['Volume'].mean() * data['iwda']['Close'].mean()
         btc_volume = data['btc']['Volume'].mean() * data['btc']['Close'].mean()
-        
+
         return {
             'iwda': iwda_volume > min_volume,
             'btc': btc_volume > min_volume,
@@ -1580,10 +812,10 @@ class UltimateQuantStrategy:
 
         # Liquidity adjustment
         liquidity_score = 20 if liquidity == 'HIGH' else 10
-        
+
         # Volume adjustment
         volume_score = min(20, volume / 1000000)  # Cap at 20 points
-        
+
         # Regime adjustment
         regime_scores = {
             'EXTREME_FEAR': 30,
@@ -1593,7 +825,7 @@ class UltimateQuantStrategy:
             'EXTREME_GREED': -20
         }
         regime_score = regime_scores.get(regime['regime'], 0)
-        
+
         return base_score + liquidity_score + volume_score + regime_score
 
     def _calculate_kelly(self, asset):
