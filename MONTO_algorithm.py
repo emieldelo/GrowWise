@@ -4,16 +4,17 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import json
+import os
+import request
 from scipy import stats
 from scipy.optimize import minimize
 import warnings
 from zoneinfo import ZoneInfo  # Add this with your other imports
 warnings.filterwarnings('ignore')
 
-session = requests.Session()
-session.headers.update({
-    'User-Agent': os.getenv('YF_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-})
+YF_SESSION = requests.Session()
+user_agent = os.getenv('YF_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+YF_SESSION.headers.update({'User-Agent': user_agent})
 
 class UltimateQuantStrategy:
     """
@@ -76,20 +77,14 @@ class UltimateQuantStrategy:
     def get_market_data_optimized(self):
         """Fetch market data including Fear & Greed indices"""
         try:
-            # Create session with User-Agent for yfinance
-            import requests
-            import os
-            
-            session = requests.Session()
-            user_agent = os.getenv('YF_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-            session.headers.update({'User-Agent': user_agent})
+
             
             # Get IWDA and Bitcoin data with session
             print("Fetching market prices...")
-            iwda = yf.Ticker("IWDA.AS", session=session)
-            btc = yf.Ticker("BTC-USD", session=session)
-            vix = yf.Ticker("^VIX", session=session)
-            usd_eur = yf.Ticker("EURUSD=X", session=session)
+            iwda = yf.Ticker("IWDA.AS", session=YF_SESSION)
+            btc = yf.Ticker("BTC-USD", session=YF_SESSION)
+            vix = yf.Ticker("^VIX", session=YF_SESSION)
+            usd_eur = yf.Ticker("EURUSD=X", session=YF_SESSION)
 
             # Get 2 years of data
             period = "2y"
