@@ -6,4 +6,6 @@ services:
     startCommand: gunicorn main:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0 
+        value: 3.9.18
+      - key: PYTHONPATH
+        value: /opt/render/project/src
