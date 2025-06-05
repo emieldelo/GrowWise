@@ -1,10 +1,14 @@
-from flask import Flask, render_template, request, jsonify, abort
+from flask import Flask, render_template, request, jsonify, abort, redirect, url_for, session
 import jwt
-from MONTO_algorithm import UltimateQuantStrategy
-import traceback
 import os
 
+from MONTO_algorithm import UltimateQuantStrategy
+import traceback
+
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "geheim")  # Nodig voor session
+
+
 
 
 SUPABASE_JWT_SECRET = os.environ.get("JWT_SECRET")  # Haal de secret uit je environment
@@ -88,7 +92,7 @@ def scale_recommendation(recommendation, input_amount):
     
     return recommendation
 
-@app.route('/', methods=['GET', 'POST', 'HEAD'])
+@app.route('/', methods=['GET', 'POST'])
 def home():
     try:
         plant_state = get_plant_state(50)
@@ -208,6 +212,11 @@ def home():
         result = {'error': f"Error: {str(e)}"}
         print(f"Error details: {traceback.format_exc()}")
         # Behoud default plant_state bij errors
+
+        # Sla resultaat tijdelijk op in de session
+        session['result'] = result
+        session['plant_state'] = plant_state
+        return redirect(url_for('home'))
 
     # Geef ALTIJD zowel result als plant_state mee
     return render_template('home.html', result=result, plant_state=plant_state)
