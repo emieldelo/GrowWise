@@ -4,11 +4,10 @@
     <title>GrowWise | Laat je geld groeien</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://bylitdfgprwbuhczsjck.supabase.co';
-        const SUPABASE_KEY = 'YOUR_ANON_KEY'; 
+        const SUPABASE_KEY = 'YOUR_ANON_KEY'; // Vervang door je echte key!
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     </script>
     <style>
@@ -462,7 +461,7 @@
             <div class="container mx-auto px-6">
                 <h2 class="text-3xl font-bold text-center mb-12">Bereken je groeipotentieel</h2>
                 <div class="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
-                    <form method="POST" class="space-y-6">
+                    <form id="calculator-form" method="POST" class="space-y-6">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 Hoeveel wil je maandelijks investeren?
@@ -1284,27 +1283,24 @@
     </div>
 
     <script>
-        // Vervang het bestaande script met:
         document.addEventListener('DOMContentLoaded', function() {
-            // Start met groeien button
-            document.getElementById('startButton').addEventListener('click', function(e) {
-                e.preventDefault();
-                document.getElementById('calculator').scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
+            // Scroll buttons
+            const startBtn = document.getElementById('startButton');
+            if (startBtn) {
+                startBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('calculator').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 });
-            });
-
-            // Leer meer button
-            document.getElementById('learnMoreButton').addEventListener('click', function(e) {
-                e.preventDefault();
-                document.getElementById('learn-more').scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
+            }
+            const learnMoreBtn = document.getElementById('learnMoreButton');
+            if (learnMoreBtn) {
+                learnMoreBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('learn-more').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 });
-            });
+            }
 
-            // Tab functionality
+            // Tabs
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -1312,126 +1308,139 @@
                     switchTab(tabId);
                 });
             });
+
+            // Calculator form submit
+            const calcForm = document.getElementById('calculator-form');
+            if (calcForm) {
+                calcForm.addEventListener('submit', async function(e) {
+                    const { data } = await supabase.auth.getUser();
+                    if (!data.user) {
+                        e.preventDefault();
+                        document.getElementById('auth-modal').style.display = 'flex';
+                        document.getElementById('loading').style.display = 'none';
+                        return false;
+                    }
+                    document.getElementById('loading').style.display = 'flex';
+                });
+            }
+
+            // Supabase Auth
+            const signupForm = document.getElementById('signup-form');
+            if (signupForm) {
+                signupForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const email = document.getElementById('signup-email').value;
+                    const password = document.getElementById('signup-password').value;
+                    const { error } = await supabase.auth.signUp({ email, password });
+                    if (error) {
+                        document.getElementById('signup-error').textContent = error.message;
+                    } else {
+                        document.getElementById('signup-error').textContent = "Check je mailbox om je account te bevestigen!";
+                    }
+                });
+            }
+
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const email = document.getElementById('login-email').value;
+                    const password = document.getElementById('login-password').value;
+                    const { error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) {
+                        document.getElementById('auth-error').textContent = error.message;
+                    } else {
+                        window.location.reload();
+                    }
+                });
+            }
+
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async function() {
+                    await supabase.auth.signOut();
+                    window.location.reload();
+                });
+            }
+
+            // Modals
+            const showSignup = document.getElementById('show-signup');
+            if (showSignup) {
+                showSignup.onclick = function() {
+                    document.getElementById('auth-modal').style.display = 'none';
+                    document.getElementById('signup-modal').style.display = 'flex';
+                };
+            }
+            const showLogin = document.getElementById('show-login');
+            if (showLogin) {
+                showLogin.onclick = function() {
+                    document.getElementById('signup-modal').style.display = 'none';
+                    document.getElementById('auth-modal').style.display = 'flex';
+                };
+            }
+            const forgotPassword = document.getElementById('forgot-password');
+            if (forgotPassword) {
+                forgotPassword.onclick = function() {
+                    document.getElementById('auth-modal').style.display = 'none';
+                    document.getElementById('reset-modal').style.display = 'flex';
+                    document.getElementById('reset-error').textContent = '';
+                    document.getElementById('reset-success').textContent = '';
+                };
+            }
+            const backToLogin = document.getElementById('back-to-login');
+            if (backToLogin) {
+                backToLogin.onclick = function() {
+                    document.getElementById('reset-modal').style.display = 'none';
+                    document.getElementById('auth-modal').style.display = 'flex';
+                };
+            }
+            const resetForm = document.getElementById('reset-form');
+            if (resetForm) {
+                resetForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const email = document.getElementById('reset-email').value;
+                    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+                    if (error) {
+                        document.getElementById('reset-error').textContent = error.message;
+                        document.getElementById('reset-success').textContent = '';
+                    } else {
+                        document.getElementById('reset-success').textContent = "Check je mailbox voor de reset-link!";
+                        document.getElementById('reset-error').textContent = '';
+                    }
+                });
+            }
+
+            // Toon profiel als ingelogd
+            supabase.auth.getUser().then(({ data }) => {
+                const profileMenu = document.getElementById('profile-menu');
+                const authModal = document.getElementById('auth-modal');
+                const signupModal = document.getElementById('signup-modal');
+                if (data.user) {
+                    if (profileMenu) profileMenu.style.display = 'flex';
+                    if (authModal) authModal.style.display = 'none';
+                    if (signupModal) signupModal.style.display = 'none';
+                } else {
+                    if (profileMenu) profileMenu.style.display = 'none';
+                }
+            });
         });
 
         function switchTab(tabId) {
-            // Verberg alle tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.add('hidden');
             });
-
-            // Reset alle buttons
             document.querySelectorAll('.tab-button').forEach(btn => {
                 btn.classList.remove('active', 'border-green-500');
                 btn.classList.add('text-gray-500', 'border-transparent');
             });
-
-            // Activeer de geselecteerde tab
             const selectedTab = document.getElementById(tabId);
             const activeButton = document.querySelector(`[data-tab="${tabId}"]`);
-
-            if (selectedTab) {
-                selectedTab.classList.remove('hidden');
-            }
+            if (selectedTab) selectedTab.classList.remove('hidden');
             if (activeButton) {
                 activeButton.classList.remove('text-gray-500', 'border-transparent');
                 activeButton.classList.add('active', 'border-green-500');
             }
         }
-
-        document.querySelector('form').addEventListener('submit', async function(e) {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
-    e.preventDefault();
-    document.getElementById('auth-modal').style.display = 'flex';
-    document.getElementById('loading').style.display = 'none';
-    return false;
-  }
-  document.getElementById('loading').style.display = 'flex';
-});
-
-        // Supabase Auth Frontend Integratie
-// filepath: c:\Users\Gebruiker\OneDrive - UGent\Documenten\A Prive\Investeringen\Investeringstool\main.py
-// ...bestaande code...
-
-        // Signup
-        document.getElementById('signup-form').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const email = document.getElementById('signup-email').value;
-  const password = document.getElementById('signup-password').value;
-  const { error } = await supabase.auth.signUp({ email, password });
-  if (error) {
-    document.getElementById('signup-error').textContent = error.message;
-  } else {
-    document.getElementById('signup-error').textContent = "Check je mailbox om je account te bevestigen!";
-  }
-});
-
-// Login
-document.getElementById('login-form').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const email = document.getElementById('login-email').value;
-  const password = document.getElementById('login-password').value;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    document.getElementById('auth-error').textContent = error.message;
-  } else {
-    window.location.reload(); // Of toon profiel, sluit modal, etc.
-  }
-});
-
-// Logout
-document.getElementById('logout-btn').addEventListener('click', async function() {
-  await supabase.auth.signOut();
-  window.location.reload();
-});
-
-// Toon/hide modals (optioneel, als je dat nog niet hebt)
-document.getElementById('show-signup').onclick = function() {
-  document.getElementById('auth-modal').style.display = 'none';
-  document.getElementById('signup-modal').style.display = 'flex';
-};
-document.getElementById('show-login').onclick = function() {
-  document.getElementById('signup-modal').style.display = 'none';
-  document.getElementById('auth-modal').style.display = 'flex';
-};
-
-// Wachtwoord vergeten
-document.getElementById('forgot-password').onclick = function() {
-  document.getElementById('auth-modal').style.display = 'none';
-  document.getElementById('reset-modal').style.display = 'flex';
-  document.getElementById('reset-error').textContent = '';
-  document.getElementById('reset-success').textContent = '';
-};
-document.getElementById('back-to-login').onclick = function() {
-  document.getElementById('reset-modal').style.display = 'none';
-  document.getElementById('auth-modal').style.display = 'flex';
-};
-
-// Reset formulier afhandeling
-document.getElementById('reset-form').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const email = document.getElementById('reset-email').value;
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
-  if (error) {
-    document.getElementById('reset-error').textContent = error.message;
-    document.getElementById('reset-success').textContent = '';
-  } else {
-    document.getElementById('reset-success').textContent = "Check je mailbox voor de reset-link!";
-    document.getElementById('reset-error').textContent = '';
-  }
-});
-
-// Toon profiel als ingelogd
-supabase.auth.getUser().then(({ data }) => {
-  if (data.user) {
-    document.getElementById('profile-menu').style.display = 'flex';
-    document.getElementById('auth-modal').style.display = 'none';
-    document.getElementById('signup-modal').style.display = 'none';
-  } else {
-    document.getElementById('profile-menu').style.display = 'none';
-  }
-});
-    
+    </script>
 </body>
 </html>
