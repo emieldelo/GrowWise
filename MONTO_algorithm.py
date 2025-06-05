@@ -174,15 +174,29 @@ class UltimateQuantStrategy:
 
     def _convert_polygon_to_df(self, raw_data):
         """Convert Polygon.io data to pandas DataFrame with same format as before"""
-        df = pd.DataFrame([{
-            'Date': datetime.fromtimestamp(x.t / 1000),
-            'Open': x.o,
-            'High': x.h,
-            'Low': x.l,
-            'Close': x.c,
-            'Volume': x.v
-        } for x in raw_data])
-        return df.set_index('Date')
+        try:
+            # Create DataFrame with proper timestamp conversion
+            df = pd.DataFrame([{
+                'Open': x.o,
+                'High': x.h,
+                'Low': x.l,
+                'Close': x.c,
+                'Volume': x.v,
+                'Date': pd.Timestamp.fromtimestamp(x.t / 1000)  # Convert milliseconds to seconds
+            } for x in raw_data])
+            
+            # Set index after DataFrame creation
+            if not df.empty:
+                df.set_index('Date', inplace=True)
+                df.sort_index(inplace=True)  # Ensure chronological order
+                return df
+            else:
+                print("Warning: Empty data received from Polygon.io")
+                return pd.DataFrame(columns=['Open', 'High', 'Low', 'Close', 'Volume'])
+                
+        except Exception as e:
+            print(f"Error converting Polygon data to DataFrame: {str(e)}")
+            return pd.DataFrame(columns=['Open', 'High', 'Low', 'Close', 'Volume'])
 
     def calculate_statistical_regime(self, data):
         """
