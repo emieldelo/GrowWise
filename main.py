@@ -8,15 +8,12 @@ app = Flask(__name__)
 
 SUPABASE_PROJECT_ID = "bylitdfgprwbuhczsjck"  # jouw project-id
 SUPABASE_JWT_URL = f"https://{SUPABASE_PROJECT_ID}.supabase.co/auth/v1/keys"
+SUPABASE_JWT_SECRET = "JWT_SECRET"
 
 def verify_supabase_jwt(token):
     try:
-        jwks = requests.get(SUPABASE_JWT_URL).json()
-        public_keys = {key['kid']: jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key)) for key in jwks['keys']}
-        unverified_header = jwt.get_unverified_header(token)
-        key = public_keys[unverified_header['kid']]
-        payload = jwt.decode(token, key=key, algorithms=["RS256"], audience=None)
-        return payload  # bevat info over de gebruiker
+        payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"])
+        return payload
     except Exception as e:
         print(f"JWT verificatie mislukt: {e}")
         return None
