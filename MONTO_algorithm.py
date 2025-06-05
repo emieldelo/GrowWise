@@ -10,11 +10,10 @@ from scipy import stats
 from scipy.optimize import minimize
 import warnings
 from zoneinfo import ZoneInfo  # Add this with your other imports
+from polygon import RESTClient
 warnings.filterwarnings('ignore')
 
-YF_SESSION = requests.Session()
-user_agent = os.getenv('YF_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-YF_SESSION.headers.update({'User-Agent': user_agent})
+
 
 class UltimateQuantStrategy:
     """
@@ -24,6 +23,11 @@ class UltimateQuantStrategy:
     """
 
     def __init__(self):
+        POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')
+        if not POLYGON_API_KEY:
+           raise ValueError("POLYGON_API_KEY environment variable is not set")
+        self.client = RESTClient(POLYGON_API_KEY)
+        
         # Core strategy parameters (keeping your brilliant base)
         self.monthly_target = 1500
         self.component_size = 300
@@ -75,62 +79,84 @@ class UltimateQuantStrategy:
             return {"monthly_returns": [], "strategy_stats": {}}
 
     def get_market_data_optimized(self):
-        """Fetch market data including Fear & Greed indices"""
+        """Fetch market data using Polygon.io for prices and keep existing Fear & Greed APIs"""
         try:
-
+            print("📊 Fetching market prices...")
             
-            # Get IWDA and Bitcoin data with session
-            print("Fetching market prices...")
-            iwda = yf.Ticker("IWDA.AS", session=YF_SESSION)
-            btc = yf.Ticker("BTC-USD", session=YF_SESSION)
-            vix = yf.Ticker("^VIX", session=YF_SESSION)
-            usd_eur = yf.Ticker("EURUSD=X", session=YF_SESSION)
+            # Calculate date range for Polygon.io
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=750)  # ~2 years
 
-            # Get 2 years of data
-            period = "2y"
-            iwda_data = iwda.history(period=period)
-            btc_data = btc.history(period=period)
-            vix_data = vix.history(period=period)
-            usd_eur_data = usd_eur.history(period="1d")
+            # Get market data from Polygon.io
+            try:
+                # Get IWDA data
+                iwda_raw = self.client.get_aggs(
+                    "IWDA.AS", 
+                    multiplier=1,
+                    timespan="day",
+                    from_=start_date.strftime('%Y-%m-%d'),
+                    to=end_date.strftime('%Y-%m-%d')
+                )
+                iwda_data = self._convert_polygon_to_df(iwda_raw)
+                
+                # Get BTC data
+                btc_raw = self.client.get_aggs(
+                    "X:BTCUSD", 
+                    multiplier=1,
+                    timespan="day",
+                    from_=start_date.strftime('%Y-%m-%d'),
+                    to=end_date.strftime('%Y-%m-%d')
+                )
+                btc_data = self._convert_polygon_to_df(btc_raw)
+                
+                # Get VIX data
+                vix_raw = self.client.get_aggs(
+                    "I:VIX", 
+                    multiplier=1,
+                    timespan="day",
+                    from_=start_date.strftime('%Y-%m-%d'),
+                    to=end_date.strftime('%Y-%m-%d')
+                )
+                vix_data = self._convert_polygon_to_df(vix_raw)
 
+                # Get EUR/USD rate
+                forex_raw = self.client.get_last_forex_quote("C:EURUSD")
+                usd_eur_rate = 1 / forex_raw.ask  # Convert to EUR/USD
+
+            except Exception as e:
+                print(f"Polygon.io API error: {e}")
+                return None
+
+            # Keep existing Fear & Greed API calls
             try:
                 # CNN Fear & Greed for S&P 500
                 print("Fetching S&P500 Fear & Greed Index...")
-                cnn_url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
-                headers = {
-                    'User-Agent': user_agent,
-                    'Accept': 'application/json'
-                }
-                cnn_response = requests.get(cnn_url, headers=headers, timeout=10)
+                cnn_response = requests.get(
+                    "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+                    timeout=10
+                )
                 cnn_data = cnn_response.json()
                 sp500_fear_greed = float(cnn_data['fear_and_greed']['score'])
                 print(f"S&P500 Fear & Greed: {sp500_fear_greed:.1f}")
 
             except Exception as e:
                 print(f"CNN API error: {e}, using fallback calculation")
-                sp500_fear_greed = 50  # Neutral stance if API fails
+                sp500_fear_greed = 50
 
             try:
                 # Alternative.me Fear & Greed for Bitcoin
                 print("Fetching Bitcoin Fear & Greed Index...")
-                crypto_url = "https://api.alternative.me/fng/?limit=1"
-                crypto_response = requests.get(crypto_url, timeout=10)
+                crypto_response = requests.get(
+                    "https://api.alternative.me/fng/?limit=1",
+                    timeout=10
+                )
                 crypto_data = crypto_response.json()
                 btc_fear_greed = float(crypto_data['data'][0]['value'])
                 print(f"Bitcoin Fear & Greed: {btc_fear_greed:.1f}")
 
             except Exception as e:
                 print(f"Crypto API error: {e}, using fallback calculation")
-                btc_fear_greed = 50  # Neutral stance if API fails
-
-            # Check if data is empty
-            if iwda_data.empty or btc_data.empty or vix_data.empty or usd_eur_data.empty:
-                print("Warning: Some market data is empty")
-                return None
-
-            # Get current USD/EUR rate (invert for correct conversion)
-            usd_eur_rate = 1 / usd_eur_data['Close'].iloc[-1]
-            print(f"USD/EUR Rate: {usd_eur_rate:.4f}")
+                btc_fear_greed = 50
 
             return {
                 'iwda': iwda_data,
@@ -145,6 +171,18 @@ class UltimateQuantStrategy:
         except Exception as e:
             print(f"Critical data fetch error: {str(e)}")
             return None
+
+    def _convert_polygon_to_df(self, raw_data):
+        """Convert Polygon.io data to pandas DataFrame with same format as before"""
+        df = pd.DataFrame([{
+            'Date': datetime.fromtimestamp(x.t / 1000),
+            'Open': x.o,
+            'High': x.h,
+            'Low': x.l,
+            'Close': x.c,
+            'Volume': x.v
+        } for x in raw_data])
+        return df.set_index('Date')
 
     def calculate_statistical_regime(self, data):
         """
