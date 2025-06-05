@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template, request, jsonify
 from MONTO_algorithm import UltimateQuantStrategy
 import traceback
 
