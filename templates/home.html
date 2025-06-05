@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://bylitdfgprwbuhczsjck.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5bGl0ZGZncHJ3YnVoY3pzamNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMzk4NjYsImV4cCI6MjA2NDcxNTg2Nn0.0ddkPABXj_CHlLVgCk_9MEF-qnAYDjW39rBBflPCzsw'; // Vervang door je echte key!
+        const SUPABASE_KEY = 'YOUR_ANON_KEY'; // Vervang door je echte key!
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     </script>
     <style>
@@ -1188,7 +1188,11 @@
 
         <!-- Login Modal -->
 <div id="auth-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
-  <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
+  <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm relative">
+    <!-- Sluitknop -->
+    <button id="close-auth-modal" class="absolute top-4 right-4 text-gray-400 hover:text-green-600 text-2xl font-bold focus:outline-none" aria-label="Sluiten">
+      &times;
+    </button>
     <h2 class="text-2xl font-bold mb-4 text-center text-green-700">Log in bij GrowWise</h2>
     <form id="login-form" class="space-y-4">
       <input type="email" id="login-email" placeholder="E-mail" required class="w-full p-3 border rounded-lg">
@@ -1207,7 +1211,11 @@
 
 <!-- Signup Modal -->
 <div id="signup-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
-  <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
+  <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm relative">
+    <!-- Sluitknop -->
+    <button id="close-signup-modal" class="absolute top-4 right-4 text-gray-400 hover:text-green-600 text-2xl font-bold focus:outline-none" aria-label="Sluiten">
+      &times;
+    </button>
     <h2 class="text-2xl font-bold mb-4 text-center text-green-700">Maak een gratis account</h2>
     <form id="signup-form" class="space-y-4">
       <input type="email" id="signup-email" placeholder="E-mail" required class="w-full p-3 border rounded-lg">
@@ -1348,7 +1356,7 @@ window.location.reload();
                     if (error) {
                         document.getElementById('signup-error').textContent = error.message;
                     } else {
-                        document.getElementById('signup-error').textContent = "Check je mailbox om je account te bevestigen!";
+                        document.getElementById('signup-error').textContent = "Check je mailbox om je account te bevestigen! (Kijk ook in je spamfolder)";
                     }
                 });
             }
@@ -1422,6 +1430,20 @@ window.location.reload();
                     }
                 });
             }
+
+            // Sluitknoppen voor modals
+    const closeAuthModal = document.getElementById('close-auth-modal');
+    if (closeAuthModal) {
+        closeAuthModal.onclick = function() {
+            document.getElementById('auth-modal').style.display = 'none';
+        };
+    }
+    const closeSignupModal = document.getElementById('close-signup-modal');
+    if (closeSignupModal) {
+        closeSignupModal.onclick = function() {
+            document.getElementById('signup-modal').style.display = 'none';
+        };
+    }
 
             // Toon profiel als ingelogd
             supabase.auth.getUser().then(({ data }) => {
