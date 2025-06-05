@@ -211,6 +211,12 @@ def home():
     # Geef ALTIJD zowel result als plant_state mee
     return render_template('home.html', result=result, plant_state=plant_state)
 
+@app.errorhandler(401)
+def unauthorized(e):
+    if request.accept_mimetypes.accept_json:
+        return jsonify({'error': 'Unauthorized'}), 401
+    return render_template('401.html'), 401  # optioneel, als je een HTML pagina wilt
+
 if __name__ == '__main__':
     app.debug = True  # Zet debug mode aan voor development
     app.run(host='0.0.0.0', port=8080)
