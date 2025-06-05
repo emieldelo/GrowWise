@@ -1321,27 +1321,14 @@
             const calcForm = document.getElementById('calculator-form');
             if (calcForm) {
                 calcForm.addEventListener('submit', async function(e) {
-                    e.preventDefault(); // <-- Dit voorkomt standaard submit!
                     const { data } = await supabase.auth.getUser();
                     if (!data.user) {
+                        e.preventDefault();
                         document.getElementById('auth-modal').style.display = 'flex';
-                        return false; // Stop hier, doe geen POST!
+                        return false;
                     }
-                    // ...verder met fetch POST...
-                    const token = (await supabase.auth.getSession()).data.session.access_token;
-                    const formData = new FormData(this);
-                    const response = await fetch("/", {
-                        method: "POST",
-                        headers: {
-                            "Authorization": `Bearer ${token}`
-                        },
-                        body: formData
-                    });
-                    if (response.status === 401) {
-    document.getElementById('auth-modal').style.display = 'flex';
-    return;
-}
-
+                    // Laat de browser het formulier gewoon submitten!
+                    // Dus GEEN e.preventDefault() en GEEN fetch!
                 });
             }
 
