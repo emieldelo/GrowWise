@@ -518,7 +518,7 @@
                                     <div class="relative overflow-hidden rounded-lg">
                                         <!-- Progress bar background -->
                                         <div class="absolute top-0 left-0 h-full bg-blue-100/50" 
-                                             style="width: {{ (item.amount / result.total * 100)|float }}%">
+                                             style="width: {{ (item.amount / result.total * 100)|float }}%;">
                                         </div>
                                         
                                         <!-- Content -->
@@ -1317,10 +1317,18 @@
                     if (!data.user) {
                         e.preventDefault();
                         document.getElementById('auth-modal').style.display = 'flex';
-                        document.getElementById('loading').style.display = 'none';
                         return false;
                     }
-                    document.getElementById('loading').style.display = 'flex';
+                    const token = (await supabase.auth.getSession()).data.session.access_token;
+                    const formData = new FormData(this);
+                    const response = await fetch("/", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+                    window.location.reload(); // Of: toon resultaat zonder reload
                 });
             }
 
