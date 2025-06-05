@@ -107,7 +107,7 @@ def home():
                         'btc': recommendation['current_prices']['btc'],
                         'iwda': recommendation['current_prices']['iwda_proxy']
                     },
-                    recommendation['allocation
+                    recommendation['allocation']
                 )
 
                 result = {
