@@ -1,16 +1,32 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, abort
+import jwt
+import requests
 from MONTO_algorithm import UltimateQuantStrategy
 import traceback
 
 app = Flask(__name__)
 
+SUPABASE_PROJECT_ID = "bylitdfgprwbuhczsjck"  # jouw project-id
+SUPABASE_JWT_URL = f"https://{SUPABASE_PROJECT_ID}.supabase.co/auth/v1/keys"
 
+def verify_supabase_jwt(token):
+    try:
+        jwks = requests.get(SUPABASE_JWT_URL).json()
+        public_keys = {key['kid']: jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key)) for key in jwks['keys']}
+        unverified_header = jwt.get_unverified_header(token)
+        key = public_keys[unverified_header['kid']]
+        payload = jwt.decode(token, key=key, algorithms=["RS256"], audience=None)
+        return payload  # bevat info over de gebruiker
+    except Exception as e:
+        print(f"JWT verificatie mislukt: {e}")
+        return None
+    
 def get_plant_state(fear_greed_score):
     """Bepaal plant status op basis van fear & greed score"""
     if fear_greed_score <= 25:  # Extreme Fear
         return {
             'state': 'dorry',
-            'pot_color': '#e17055',
+            'pot_color': "#583026",
             'stem_color': '#919191',
             'leaf_color': '#919191',
             'flower_color': '#919191',
@@ -78,6 +94,14 @@ def home():
         result = None
 
         if request.method == 'POST':
+            # AUTHENTICATIE CHECK
+            auth_header = request.headers.get('Authorization', '')
+            if not auth_header.startswith('Bearer '):
+                abort(401)
+            token = auth_header.split(' ')[1]
+            if not verify_supabase_jwt(token):
+                abort(401)
+
             amount = float(request.form['amount'])
             
             if amount <  100 or amount > 10000:
