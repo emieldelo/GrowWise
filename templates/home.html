@@ -1321,14 +1321,30 @@
             const calcForm = document.getElementById('calculator-form');
             if (calcForm) {
                 calcForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
                     const { data } = await supabase.auth.getUser();
                     if (!data.user) {
-                        e.preventDefault();
                         document.getElementById('auth-modal').style.display = 'flex';
                         return false;
                     }
-                    // Laat de browser het formulier gewoon submitten!
-                    // Dus GEEN e.preventDefault() en GEEN fetch!
+                    const token = (await supabase.auth.getSession()).data.session.access_token;
+                    const formData = new FormData(this);
+                    const response = await fetch("/", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+                    if (response.status === 401) {
+                        document.getElementById('auth-modal').style.display = 'flex';
+                        return;
+                    }
+                    // Vervang de pagina met de response van de backend (inclusief resultaat)
+                    const html = await response.text();
+                    document.open();
+                    document.write(html);
+                    document.close();
                 });
             }
 
