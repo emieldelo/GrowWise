@@ -10,7 +10,10 @@ from scipy import stats
 from scipy.optimize import minimize
 import warnings
 from zoneinfo import ZoneInfo  # Add this with your other imports
-from polygon import RESTClient
+from alpha_vantage.timeseries import TimeSeries
+from alpha_vantage.cryptocurrencies import CryptoCurrencies
+from alpha_vantage.foreignexchange import ForeignExchange
+
 warnings.filterwarnings('ignore')
 
 
@@ -23,10 +26,11 @@ class UltimateQuantStrategy:
     """
 
     def __init__(self):
-        POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')
-        if not POLYGON_API_KEY:
-           raise ValueError("POLYGON_API_KEY environment variable is not set")
-        self.client = RESTClient(POLYGON_API_KEY)
+        # Verwijder Polygon.io code
+        self.alpha_vantage_key = os.getenv('ALPHA_VANTAGE_KEY', 'demo')
+        self.ts = TimeSeries(key=self.alpha_vantage_key, output_format='pandas')
+        self.crypto = CryptoCurrencies(key=self.alpha_vantage_key, output_format='pandas')
+        self.fx = ForeignExchange(key=self.alpha_vantage_key)
         
         # Core strategy parameters (keeping your brilliant base)
         self.monthly_target = 1500
@@ -79,55 +83,34 @@ class UltimateQuantStrategy:
             return {"monthly_returns": [], "strategy_stats": {}}
 
     def get_market_data_optimized(self):
-        """Fetch market data using Polygon.io for prices and keep existing Fear & Greed APIs"""
+        """Fetch market data using Alpha Vantage and keep existing Fear & Greed APIs"""
         try:
             print("📊 Fetching market prices...")
             
-            # Calculate date range for Polygon.io
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=750)  # ~2 years
-
-            # Get market data from Polygon.io
             try:
-                # Get IWDA data
-                iwda_raw = self.client.get_aggs(
-                    "IWDA.AS", 
-                    multiplier=1,
-                    timespan="day",
-                    from_=start_date.strftime('%Y-%m-%d'),
-                    to=end_date.strftime('%Y-%m-%d')
-                )
-                iwda_data = self._convert_polygon_to_df(iwda_raw)
+                # Get IWDA data (via IEUR as proxy omdat IWDA.AS niet op AV zit)
+                iwda_data, _ = self.ts.get_daily(symbol='IEUR', outputsize='full')
+                iwda_data = iwda_data.tail(500)  # Laatste 2 jaar
                 
                 # Get BTC data
-                btc_raw = self.client.get_aggs(
-                    "X:BTCUSD", 
-                    multiplier=1,
-                    timespan="day",
-                    from_=start_date.strftime('%Y-%m-%d'),
-                    to=end_date.strftime('%Y-%m-%d')
-                )
-                btc_data = self._convert_polygon_to_df(btc_raw)
+                btc_data, _ = self.crypto.get_digital_currency_daily(symbol='BTC', market='EUR')
+                btc_data = btc_data.tail(500)
                 
                 # Get VIX data
-                vix_raw = self.client.get_aggs(
-                    "I:VIX", 
-                    multiplier=1,
-                    timespan="day",
-                    from_=start_date.strftime('%Y-%m-%d'),
-                    to=end_date.strftime('%Y-%m-%d')
-                )
-                vix_data = self._convert_polygon_to_df(vix_raw)
-
+                vix_data, _ = self.ts.get_daily(symbol='^VIX', outputsize='full')
+                vix_data = vix_data.tail(500)
+                
                 # Get EUR/USD rate
-                forex_raw = self.client.get_last_forex_quote("C:EURUSD")
-                usd_eur_rate = 1 / forex_raw.ask  # Convert to EUR/USD
+                usd_eur_rate = float(self.fx.get_currency_exchange_rate(
+                    from_currency='EUR',
+                    to_currency='USD'
+                )[0]['5. Exchange Rate'])
 
             except Exception as e:
-                print(f"Polygon.io API error: {e}")
+                print(f"Alpha Vantage API error: {e}")
                 return None
 
-            # Keep existing Fear & Greed API calls
+            # Keep existing Fear & Greed API calls (deze werken al)
             try:
                 # CNN Fear & Greed for S&P 500
                 print("Fetching S&P500 Fear & Greed Index...")
@@ -143,8 +126,8 @@ class UltimateQuantStrategy:
                 print(f"CNN API error: {e}, using fallback calculation")
                 sp500_fear_greed = 50
 
+            # Bitcoin Fear & Greed (behoud bestaande code)
             try:
-                # Alternative.me Fear & Greed for Bitcoin
                 print("Fetching Bitcoin Fear & Greed Index...")
                 crypto_response = requests.get(
                     "https://api.alternative.me/fng/?limit=1",
