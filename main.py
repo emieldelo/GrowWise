@@ -108,29 +108,20 @@ def home():
                 abort(401)
 
             amount = float(request.form['amount'])
-            
-            if amount <  100 or amount > 10000:
+            if amount < 100 or amount > 10000:
                 raise ValueError("Bedrag moet tussen €100 en €10.000 liggen")
-            
-            # Gebruik standaard strategie
-            strategy = UltimateQuantStrategy()
 
+            strategy = UltimateQuantStrategy()
             recommendation = strategy.generate_ultimate_recommendation()
-            
-            # Schaal de uitkomsten
             recommendation = scale_recommendation(recommendation, amount)
-            
-            # Rest van je code blijft hetzelfde...
+
             if recommendation:
                 allocations = recommendation['allocation']
                 iwda_amount = allocations['iwda_amount']
                 btc_amount = allocations['btc_amount']
                 cash_amount = amount - (iwda_amount + btc_amount)
-                # Update plant state based on fear & greed
                 fear_greed = float(recommendation.get('market_regime', {}).get('sp500_fear_greed', 50))
                 plant_state = get_plant_state(fear_greed)
-
-                # Direct de entry_points gebruiken van het recommendation object
                 entry_points = strategy.analyze_optimal_entry_points(
                     {
                         'btc': recommendation['current_prices']['btc'],
@@ -138,7 +129,6 @@ def home():
                     },
                     recommendation['allocation']
                 )
-
                 result = {
                     'market_conditions': {
                         'regime': recommendation.get('market_regime', {}).get('regime', 'Unknown'),
@@ -203,22 +193,27 @@ def home():
                         }
                     },
                     'total': amount,
-                    'plant_state': plant_state  # Voeg plant status toe aan resultaat
+                    'plant_state': plant_state
                 }
             else:
                 result = {'error': "Kon geen aanbeveling genereren"}
-                
+
+            # Sla resultaat ALTIJD op in de session en redirect
+            session['result'] = result
+            session['plant_state'] = plant_state
+            return redirect(url_for('home'))
+
+        # Bij GET: haal resultaat uit session (en wis het daarna)
+        result = session.pop('result', None)
+        plant_state = session.pop('plant_state', plant_state)
+
     except Exception as e:
         result = {'error': f"Error: {str(e)}"}
         print(f"Error details: {traceback.format_exc()}")
-        # Behoud default plant_state bij errors
-
-        # Sla resultaat tijdelijk op in de session
         session['result'] = result
         session['plant_state'] = plant_state
         return redirect(url_for('home'))
 
-    # Geef ALTIJD zowel result als plant_state mee
     return render_template('home.html', result=result, plant_state=plant_state)
 
 @app.errorhandler(401)
