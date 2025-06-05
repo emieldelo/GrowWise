@@ -130,29 +130,35 @@ class UltimateQuantStrategy:
             try:
                 print("Fetching S&P500 Fear & Greed Index...")
                 headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept': 'application/json'
                 }
                 cnn_response = requests.get(
-                    "https://fear-and-greed-index.p.rapidapi.com/api/v1/fgi",
-                    headers={
-                        **headers,
-                        'X-RapidAPI-Host': 'fear-and-greed-index.p.rapidapi.com',
-                        'X-RapidAPI-Key': os.getenv('RAPIDAPI_KEY', 'demo')
-                    },
+                    "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+                    headers=headers,
                     timeout=10
                 )
                 cnn_data = cnn_response.json()
-                sp500_fear_greed = float(cnn_data['fgi']['now']['value'])
+                sp500_fear_greed = float(cnn_data['fear_and_greed']['score'])
                 print(f"S&P500 Fear & Greed: {sp500_fear_greed:.1f}")
 
             except Exception as e:
                 print(f"CNN API error: {e}, calculating from VIX")
-                # Calculate fear & greed from VIX as fallback
+                # Smart fallback using VIX data
                 vix_current = vix_data['Close'].iloc[-1]
                 vix_max = vix_data['Close'].max()
                 vix_min = vix_data['Close'].min()
-                # Convert VIX to 0-100 scale (inverted)
-                sp500_fear_greed = 100 - ((vix_current - vix_min) / (vix_max - vix_min) * 100)
+                
+                # Enhanced VIX-based calculation
+                vix_percentile = (vix_current - vix_min) / (vix_max - vix_min)
+                sp500_fear_greed = 100 - (vix_percentile * 100)
+                
+                # Adjust for extreme values
+                if vix_current > 35:  # High VIX indicates fear
+                    sp500_fear_greed = min(sp500_fear_greed, 25)  # Cap at 25 (fear)
+                elif vix_current < 15:  # Low VIX indicates greed
+                    sp500_fear_greed = max(sp500_fear_greed, 75)  # Floor at 75 (greed)
+                
                 print(f"S&P500 Fear & Greed (VIX-based): {sp500_fear_greed:.1f}")
 
             try:
