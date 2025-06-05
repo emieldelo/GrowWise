@@ -71,7 +71,7 @@ def scale_recommendation(recommendation, input_amount):
     
     return recommendation
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST', 'HEAD'])
 def home():
     try:
         plant_state = get_plant_state(50)
