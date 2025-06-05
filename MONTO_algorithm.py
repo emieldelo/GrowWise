@@ -10,9 +10,7 @@ from scipy import stats
 from scipy.optimize import minimize
 import warnings
 from zoneinfo import ZoneInfo  # Add this with your other imports
-from alpha_vantage.timeseries import TimeSeries
-from alpha_vantage.cryptocurrencies import CryptoCurrencies
-from alpha_vantage.foreignexchange import ForeignExchange
+
 
 warnings.filterwarnings('ignore')
 
@@ -26,11 +24,7 @@ class UltimateQuantStrategy:
     """
 
     def __init__(self):
-        # Verwijder Polygon.io code
-        self.alpha_vantage_key = os.getenv('ALPHA_VANTAGE_KEY', 'demo')
-        self.ts = TimeSeries(key=self.alpha_vantage_key, output_format='pandas')
-        self.crypto = CryptoCurrencies(key=self.alpha_vantage_key, output_format='pandas')
-        self.fx = ForeignExchange(key=self.alpha_vantage_key)
+
         
         # Core strategy parameters (keeping your brilliant base)
         self.monthly_target = 1500
@@ -83,36 +77,57 @@ class UltimateQuantStrategy:
             return {"monthly_returns": [], "strategy_stats": {}}
 
     def get_market_data_optimized(self):
-        """Fetch market data using Alpha Vantage and keep existing Fear & Greed APIs"""
+        """Fetch market data using Yahoo Finance API directly and keep existing Fear & Greed APIs"""
         try:
             print("📊 Fetching market prices...")
             
+            def get_yahoo_data(symbol, range="2y", interval="1d"):
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                }
+                
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+                params = {
+                    "range": range,
+                    "interval": interval,
+                    "includePrePost": False
+                }
+                
+                response = requests.get(url, headers=headers, params=params)
+                data = response.json()
+                
+                if 'chart' in data and 'result' in data['chart'] and data['chart']['result']:
+                    result = data['chart']['result'][0]
+                    timestamps = pd.to_datetime(result['timestamp'], unit='s')
+                    quotes = result['indicators']['quote'][0]
+                    
+                    df = pd.DataFrame({
+                        'Open': quotes.get('open', []),
+                        'High': quotes.get('high', []),
+                        'Low': quotes.get('low', []),
+                        'Close': quotes.get('close', []),
+                        'Volume': quotes.get('volume', [])
+                    }, index=timestamps)
+                    
+                    return df.dropna()
+                return pd.DataFrame()
+
+            # Get market data
             try:
-                # Get IWDA data (via IEUR as proxy omdat IWDA.AS niet op AV zit)
-                iwda_data, _ = self.ts.get_daily(symbol='IEUR', outputsize='full')
-                iwda_data = iwda_data.tail(500)  # Laatste 2 jaar
-                
-                # Get BTC data
-                btc_data, _ = self.crypto.get_digital_currency_daily(symbol='BTC', market='EUR')
-                btc_data = btc_data.tail(500)
-                
-                # Get VIX data
-                vix_data, _ = self.ts.get_daily(symbol='^VIX', outputsize='full')
-                vix_data = vix_data.tail(500)
+                iwda_data = get_yahoo_data("IWDA.AS")
+                btc_data = get_yahoo_data("BTC-USD")
+                vix_data = get_yahoo_data("^VIX")
                 
                 # Get EUR/USD rate
-                usd_eur_rate = float(self.fx.get_currency_exchange_rate(
-                    from_currency='EUR',
-                    to_currency='USD'
-                )[0]['5. Exchange Rate'])
+                usd_eur_data = get_yahoo_data("EURUSD=X", range="1d")
+                usd_eur_rate = 1 / float(usd_eur_data['Close'].iloc[-1])
 
             except Exception as e:
-                print(f"Alpha Vantage API error: {e}")
+                print(f"Yahoo Finance API error: {e}")
                 return None
 
             # Keep existing Fear & Greed API calls (deze werken al)
             try:
-                # CNN Fear & Greed for S&P 500
                 print("Fetching S&P500 Fear & Greed Index...")
                 cnn_response = requests.get(
                     "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
@@ -126,7 +141,6 @@ class UltimateQuantStrategy:
                 print(f"CNN API error: {e}, using fallback calculation")
                 sp500_fear_greed = 50
 
-            # Bitcoin Fear & Greed (behoud bestaande code)
             try:
                 print("Fetching Bitcoin Fear & Greed Index...")
                 crypto_response = requests.get(
