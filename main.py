@@ -11,7 +11,12 @@ SUPABASE_JWT_SECRET = os.environ.get("JWT_SECRET")  # Haal de secret uit je envi
 
 def verify_supabase_jwt(token):
     try:
-        payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False}  # <-- voeg dit toe!
+        )
         return payload
     except Exception as e:
         print(f"JWT verificatie mislukt: {e}")
