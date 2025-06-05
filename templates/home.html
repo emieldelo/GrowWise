@@ -1313,12 +1313,13 @@
             const calcForm = document.getElementById('calculator-form');
             if (calcForm) {
                 calcForm.addEventListener('submit', async function(e) {
+                    e.preventDefault(); // <-- Dit voorkomt standaard submit!
                     const { data } = await supabase.auth.getUser();
                     if (!data.user) {
-                        e.preventDefault();
                         document.getElementById('auth-modal').style.display = 'flex';
-                        return false;
+                        return false; // Stop hier, doe geen POST!
                     }
+                    // ...verder met fetch POST...
                     const token = (await supabase.auth.getSession()).data.session.access_token;
                     const formData = new FormData(this);
                     const response = await fetch("/", {
@@ -1328,7 +1329,11 @@
                         },
                         body: formData
                     });
-                    window.location.reload(); // Of: toon resultaat zonder reload
+                    if (response.status === 401) {
+    document.getElementById('auth-modal').style.display = 'flex';
+    return;
+}
+window.location.reload();
                 });
             }
 
