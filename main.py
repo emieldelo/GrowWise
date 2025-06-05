@@ -1,14 +1,13 @@
 from flask import Flask, render_template, request, jsonify, abort
 import jwt
-import requests
 from MONTO_algorithm import UltimateQuantStrategy
 import traceback
+import os
 
 app = Flask(__name__)
 
-SUPABASE_PROJECT_ID = "bylitdfgprwbuhczsjck"  # jouw project-id
-SUPABASE_JWT_URL = f"https://{SUPABASE_PROJECT_ID}.supabase.co/auth/v1/keys"
-SUPABASE_JWT_SECRET = "JWT_SECRET"
+
+SUPABASE_JWT_SECRET = os.environ.get("JWT_SECRET")  # Haal de secret uit je environment
 
 def verify_supabase_jwt(token):
     try:
