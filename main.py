@@ -299,10 +299,16 @@ HTML_TEMPLATE = """
                     <h1 class="text-5xl font-bold mb-8 gradient-text">
                         Plant je financiële toekomst 🌱
                     </h1>
-                    <p class="text-xl text-gray-600 mb-8">
-                        Net als een plant heeft jouw vermogen water en zorg nodig om te groeien. 
-                        Met GrowWise geef je je geld elke maand precies wat het nodig heeft.
+                    <p class="text-xl text-gray-600 mb-4">
+                        Ontvang elke maand een slimme, actuele verdeling voor je investering in <strong>IWDA ETF</strong>, <strong>Bitcoin</strong> en <strong>cash buffer</strong> – volledig op basis van realtime marktdata. 
+                        <br>
+                        <span class="text-sm text-gray-500 block mt-2">GrowWise is een educatieve tool en geen financieel advies. Resultaten uit het verleden bieden geen garantie voor de toekomst.</span>
                     </p>
+                    <div class="flex gap-2 mb-8">
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">Realtime marktdata</span>
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">Elke maand opnieuw</span>
+                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">Emotieloos beleggen</span>
+                    </div>
                     <div class="flex flex-wrap gap-4">
                         <button id="startButton" class="bg-green-500 text-white px-8 py-4 rounded-lg font-semibold hover-grow shadow-lg">
                             Start met groeien →
@@ -318,121 +324,99 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
                 <div class="lg:w-1/2 mt-10 lg:mt-0">
-                    <div class="float-animation relative">
-                        <svg class="w-full" viewBox="0 0 200 200">
-                            <defs>
-                                <!-- Gradient definitions for different states -->
-                                <linearGradient id="stemGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" style="stop-color:{{ plant_state.stem_color }};stop-opacity:0.8"/>
-                                    <stop offset="100%" style="stop-color:{{ plant_state.stem_color }};stop-opacity:1"/>
-                                </linearGradient>
-                                <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" style="stop-color:{{ plant_state.leaf_color }};stop-opacity:0.8"/>
-                                    <stop offset="100%" style="stop-color:{{ plant_state.leaf_color }};stop-opacity:1"/>
-                                </linearGradient>
-                                <filter id="glow">
-                                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                                    <feMerge>
-                                        <feMergeNode in="coloredBlur"/>
-                                        <feMergeNode in="SourceGraphic"/>
-                                    </feMerge>
-                                </filter>
-                            </defs>
-                            
-                            <g class="plant-group">
-                                <!-- Enhanced Pot with 3D effect -->
-                                <path d="M50,160 C50,160 60,180 100,180 C140,180 150,160 150,160 L140,200 L60,200 Z" 
-                                      fill="{{ plant_state.pot_color }}" 
-                                      stroke="#00000022" 
-                                      stroke-width="1"/>
-                                
-                                <!-- Dynamic Stem with gradient -->
-                                <g class="sway-animation">
-                                    <path class="grow-animation" 
-                                          d="M100,160 C100,140 95,120 100,100 C105,80 100,60 100,40" 
-                                          stroke="url(#stemGradient)" 
-                                          stroke-width="6" 
-                                          fill="none"
-                                          stroke-linecap="round"/>
-                                    
-                                    <!-- Enhanced Leaves -->
-                                    {% if plant_state.state in ['dorry', 'thirsty'] %}
-                                        <!-- Drooping leaves for dry state -->
-                                        <g class="petal-wave">
-                                            <path d="M100,120 C110,120 130,130 140,150" 
-                                                  stroke="url(#leafGradient)" 
-                                                  stroke-width="4" 
-                                                  fill="none"/>
-                                            <path d="M100,100 C90,100 70,110 60,130" 
-                                                  stroke="url(#leafGradient)" 
-                                                  stroke-width="4" 
-                                                  fill="none"/>
-                                        </g>
-                                    {% else %}
-                                        <!-- Healthy leaves with more detail -->
-                                        <g class="petal-wave">
-                                            <path d="M100,120 C120,110 140,120 145,110 C150,100 140,90 130,95" 
-                                                  stroke="url(#leafGradient)" 
-                                                  stroke-width="4" 
-                                                  fill="{{ plant_state.leaf_color }}"/>
-                                            <path d="M100,100 C80,90 60,100 55,90 C50,80 60,70 70,75" 
-                                                  stroke="url(#leafGradient)" 
-                                                  stroke-width="4" 
-                                                  fill="{{ plant_state.leaf_color }}"/>
-                                        </g>
-                                    {% endif %}
-                                    
-                                    <!-- Dynamic Flower/Coins based on state -->
-                                    {% if plant_state.state == 'overripe' %}
-                                        <!-- Multiple animated coins for extreme greed -->
-                                        <g filter="url(#glow)">
-                                            <g class="sparkle">
-                                                <circle cx="100" cy="40" r="15" fill="{{ plant_state.flower_color }}"/>
-                                                <circle cx="85" cy="50" r="12" fill="{{ plant_state.flower_color }}"/>
-                                                <circle cx="115" cy="50" r="12" fill="{{ plant_state.flower_color }}"/>
-                                                <text x="95" y="45" font-family="Arial" font-size="14" fill="white" font-weight="bold">€</text>
-                                                <text x="80" y="55" font-family="Arial" font-size="12" fill="white" font-weight="bold">€</text>
-                                                <text x="110" y="55" font-family="Arial" font-size="12" fill="white" font-weight="bold">€</text>
-                                            </g>
-                                        </g>
-                                    {% elif plant_state.state == 'blooming' %}
-                                        <!-- Beautiful flower for blooming state -->
-                                        <g class="petal-wave" filter="url(#glow)">
-                                            <!-- Flower center -->
-                                            <circle cx="100" cy="40" r="8" fill="{{ plant_state.flower_color }}"/>
-                                            <!-- Animated petals -->
-                                            {% for i in range(8) %}
-                                                <path d="M100,40 C105,35 110,25 100,15 C90,25 95,35 100,40" 
-                                                      fill="{{ plant_state.flower_color }}"
-                                                      transform="rotate({{ i * 45 }}, 100, 40)"/>
-                                            {% endfor %}
-                                        </g>
-                                    {% elif plant_state.state == 'healthy' %}
-                                        <!-- Healthy flower with subtle animation -->
-                                        <g class="petal-wave">
-                                            <circle cx="100" cy="40" r="12" fill="{{ plant_state.flower_color }}">
-                                                <animate attributeName="r" 
-                                                        values="12;13;12" 
-                                                        dur="3s" 
-                                                        repeatCount="indefinite"/>
-                                            </circle>
-                                        </g>
-                                    {% endif %}
-                                </g>
-                            </g>
-                        </svg>
-                        
-                        <!-- Plant Status Message -->
-                        <div class="absolute bottom-0 left-0 right-0 text-center bg-white bg-opacity-95 p-6 rounded-xl shadow-lg transform transition-all duration-300 hover:scale-102">
-                            <p class="text-2xl font-bold mb-2 bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent">
-                                {{ plant_state.message }}
-                            </p>
-                            <p class="text-base text-gray-600 leading-relaxed">
-                                {{ plant_state.description }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                    <div class="float-animation relative flex flex-col items-center">
+        <!-- Verbeterde verhouding: grotere plant, kleinere pot -->
+        <svg class="w-80 h-80 mx-auto" viewBox="0 0 220 260" fill="none">
+            <!-- Schaduw onder de pot -->
+            <ellipse cx="110" cy="245" rx="50" ry="10" fill="#d1d5db" opacity="0.5"/>
+            <!-- Pot onderkant en body -->
+            <ellipse cx="110" cy="220" rx="40" ry="18" fill="#b5651d"/>
+            <rect x="70" y="150" width="80" height="70" rx="36" fill="#e0a96d"/>
+            <!-- Pot bovenrand (donkerbruin, moet ONDER de stam komen) -->
+            <ellipse cx="110" cy="150" rx="40" ry="18" fill="none" stroke="#a0521d" stroke-width="6"/>
+            <ellipse cx="110" cy="150" rx="36" ry="14" fill="#e0a96d"/>
+            <!-- Stam (nu NA de rand, dus VOOR de kijker) -->
+            <rect x="104" y="65" width="12" height="95" rx="6" fill="{{ plant_state.stem_color }}">
+                <animateTransform attributeName="transform" type="rotate"
+                    values="0 110 170; 2 110 170; -2 110 170; 0 110 170"
+                    keyTimes="0;0.33;0.66;1"
+                    dur="3s" repeatCount="indefinite"/>
+            </rect>
+            <!-- Bladeren -->
+            <ellipse cx="90" cy="110" rx="26" ry="12" fill="{{ plant_state.leaf_color }}" opacity="0.85">
+                <animateTransform attributeName="transform" type="rotate"
+                    values="-18 90 110; -14 90 110; -18 90 110"
+                    keyTimes="0;0.5;1"
+                    dur="3s" repeatCount="indefinite"/>
+            </ellipse>
+            <ellipse cx="130" cy="110" rx="26" ry="12" fill="{{ plant_state.leaf_color }}" opacity="0.85">
+                <animateTransform attributeName="transform" type="rotate"
+                    values="18 130 110; 14 130 110; 18 130 110"
+                    keyTimes="0;0.5;1"
+                    dur="3s" repeatCount="indefinite"/>
+            </ellipse>
+            <!-- Bloem/coin afhankelijk van status, bovenop de stam -->
+            {% if plant_state.state == 'overripe' %}
+                <g filter="url(#glow)">
+                    <circle cx="110" cy="50" r="28" fill="#ffd700" stroke="#e6c200" stroke-width="4">
+                        <animate attributeName="r" values="28;30;28" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                    <text x="97" y="60" font-family="Arial" font-size="28" fill="#fff" font-weight="bold">€</text>
+                </g>
+            {% elif plant_state.state == 'blooming' %}
+                <g>
+                    {% for i in range(8) %}
+                        <ellipse cx="110" cy="50" rx="12" ry="32" fill="#f9d6e5" opacity="0.8">
+                            <animateTransform attributeName="transform" type="rotate"
+                                values="{{ i*45 }} 110 50; {{ i*45+10 }} 110 50; {{ i*45 }} 110 50"
+                                keyTimes="0;0.5;1"
+                                dur="4s" repeatCount="indefinite"/>
+                        </ellipse>
+                    {% endfor %}
+                    <circle cx="110" cy="50" r="16" fill="{{ plant_state.flower_color }}" stroke="#fff" stroke-width="3"/>
+                </g>
+            {% elif plant_state.state == 'healthy' %}
+                <g>
+                    {% for i in range(6) %}
+                        <ellipse cx="110" cy="50" rx="10" ry="22" fill="#c6f6d5" opacity="0.7">
+                            <animateTransform attributeName="transform" type="rotate"
+                                values="{{ i*60 }} 110 50; {{ i*60+8 }} 110 50; {{ i*60 }} 110 50"
+                                keyTimes="0;0.5;1"
+                                dur="4s" repeatCount="indefinite"/>
+                        </ellipse>
+                    {% endfor %}
+                    <circle cx="110" cy="50" r="12" fill="{{ plant_state.flower_color }}" stroke="#fff" stroke-width="2">
+                        <animate attributeName="r" values="12;14;12" dur="2.5s" repeatCount="indefinite"/>
+                    </circle>
+                </g>
+            {% elif plant_state.state == 'thirsty' %}
+                <g>
+                    <ellipse cx="110" cy="60" rx="10" ry="18" fill="#bcdff1" opacity="0.7">
+                        <animateTransform attributeName="transform" type="rotate"
+                            values="0 110 60; 5 110 60; 0 110 60"
+                            keyTimes="0;0.5;1"
+                            dur="3s" repeatCount="indefinite"/>
+                    </ellipse>
+                    <circle cx="110" cy="50" r="10" fill="{{ plant_state.flower_color }}" stroke="#fff" stroke-width="2"/>
+                </g>
+            {% else %}
+                <g>
+                    <ellipse cx="110" cy="60" rx="9" ry="16" fill="#d1d5db" opacity="0.6"/>
+                    <circle cx="110" cy="50" r="9" fill="#bdbdbd" stroke="#fff" stroke-width="1"/>
+                </g>
+            {% endif %}
+        </svg>
+        <!-- Status tekst in een stijlvolle kaart onder de pot -->
+        <div class="w-full max-w-xs bg-white bg-opacity-95 p-4 rounded-xl shadow-lg mt-4 text-center border border-gray-100">
+            <p class="text-xl font-bold mb-1 bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent">
+                {{ plant_state.message }}
+            </p>
+            <p class="text-sm text-gray-600 leading-relaxed">
+                {{ plant_state.description }}
+            </p>
+        </div>
+    </div>
+</div>
             </div>
         </div>
 
@@ -440,21 +424,26 @@ HTML_TEMPLATE = """
         <div class="bg-white py-16">
             <div class="container mx-auto px-6">
                 <h2 class="text-3xl font-bold text-center mb-12">Hoe het werkt</h2>
-                <div class="grid md:grid-cols-3 gap-8">
+                <div class="grid md:grid-cols-4 gap-8">
                     <div class="p-6 bg-gray-50 rounded-xl hover-grow">
-                        <div class="text-4xl mb-4">🌱</div>
-                        <h3 class="font-semibold text-xl mb-2">Plant je eerste investering</h3>
-                        <p class="text-gray-600">Begin met een bedrag dat bij jou past. Zelfs €100 per maand kan uitgroeien tot iets moois.</p>
+                        <div class="text-4xl mb-4">💶</div>
+                        <h3 class="font-semibold text-xl mb-2">1. Vul je maandbedrag in</h3>
+                        <p class="text-gray-600">Kies een bedrag dat je elke maand wilt investeren, bijvoorbeeld €100 tot €10.000.</p>
                     </div>
                     <div class="p-6 bg-gray-50 rounded-xl hover-grow">
-                        <div class="text-4xl mb-4">💧</div>
-                        <h3 class="font-semibold text-xl mb-2">Geef maandelijks water</h3>
-                        <p class="text-gray-600">Voeg elke maand consistent bij. Wij zorgen voor de juiste verdeling.</p>
+                        <div class="text-4xl mb-4">📊</div>
+                        <h3 class="font-semibold text-xl mb-2">2. Ontvang je verdeling</h3>
+                        <p class="text-gray-600">GrowWise berekent op basis van de markt precies hoeveel je deze maand in IWDA, Bitcoin en cash buffer stopt.</p>
                     </div>
                     <div class="p-6 bg-gray-50 rounded-xl hover-grow">
-                        <div class="text-4xl mb-4">🌳</div>
-                        <h3 class="font-semibold text-xl mb-2">Zie het groeien</h3>
-                        <p class="text-gray-600">Volg je groei in je persoonlijke groeidagboek en zie je vermogen bloeien.</p>
+                        <div class="text-4xl mb-4">🛒</div>
+                        <h3 class="font-semibold text-xl mb-2">3. Voer de orders uit</h3>
+                        <p class="text-gray-600">Plaats de voorgestelde orders bij je eigen broker. Je krijgt handige tips voor de beste uitvoering.</p>
+                    </div>
+                    <div class="p-6 bg-gray-50 rounded-xl hover-grow">
+                        <div class="text-4xl mb-4">🔁</div>
+                        <h3 class="font-semibold text-xl mb-2">4. Herhaal elke maand</h3>
+                        <p class="text-gray-600">Gebruik GrowWise elke maand opnieuw voor een actueel, emotieloos investeringsplan.</p>
                     </div>
                 </div>
             </div>
@@ -482,6 +471,8 @@ HTML_TEMPLATE = """
                         </button>
                     </form>
                 </div>
+
+            
 
                 {% if result %}
                     {% if not result.error %}
@@ -645,7 +636,9 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        
+                        <div class="text-xs text-blue-600 mt-4 mb-2">
+                            Let op: dit is géén persoonlijk advies, maar een educatieve simulatie op basis van historische data en algemene marktinformatie.
+                        </div>
                     </div>
                     {% else %}
                     <div class="mt-8 max-w-2xl mx-auto">
@@ -883,13 +876,18 @@ HTML_TEMPLATE = """
 
                     <!-- Strategy Tab -->
                     <div id="strategy" class="tab-content hidden">
-                        <h3 class="text-xl font-semibold mb-6">MONTO Strategie: Consistente Maandelijkse Groei</h3>
+                        <h3 class="text-xl font-semibold mb-6">GrowWise Strategie: Consistente Maandelijkse Groei</h3>
+
+                        <!-- Nieuw: Kader het doel van het algoritme -->
+                        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 text-yellow-800 text-sm rounded">
+        <strong>Let op:</strong> Het GrowWise algoritme is speciaal ontwikkeld om je te laten zien hoe je jouw maandelijkse inleg slim kunt verdelen over verschillende beleggingen (zoals IWDA en Bitcoin) en hoeveel je eventueel als buffer kunt aanhouden. Je krijgt géén persoonlijk advies, maar een educatief inzicht in mogelijke verdelingen op basis van actuele marktomstandigheden.
+    </div>
 
                         <!-- Kern Principes -->
                         <div class="bg-white rounded-lg p-6 shadow-sm mb-8">
                             <h4 class="text-lg font-semibold mb-4">Kernprincipes</h4>
                             <div class="space-y-4 text-gray-600">
-                                <p class="text-lg">De MONTO strategie is ontworpen voor consistente, maandelijkse investeringen met optimale timing en risicobeheer:</p>
+                                <p class="text-lg">De GrowWise strategie is ontworpen voor consistente, maandelijkse investeringen met optimale timing en risicobeheer:</p>
                                 <ul class="list-disc pl-5 space-y-2">
                                     <li>Kies een vast maandelijks bedrag dat je kunt missen</li>
                                     <li>Beleg elke maand, zonder uitzondering</li>
@@ -909,13 +907,18 @@ HTML_TEMPLATE = """
                                 </div>
 
                                 <div class="border-l-4 border-green-500 pl-4">
-                                    <h5 class="font-medium mb-2">2. Check MONTO Tool</h5>
-                                    <p class="text-gray-600">De tool analyseert marktcondities en berekent:</p>
+                                    <h5 class="font-medium mb-2">2. Check GrowWise Algoritme</h5>
+                                    <p class="text-gray-600">
+                                        Het GrowWise algoritme analyseert marktcondities en berekent:
+                                    </p>
                                     <ul class="list-disc pl-5 mt-2 text-gray-600">
-                                        <li>Optimale verdeling tussen IWDA en Bitcoin</li>
-                                        <li>Hoeveel cash buffer aan te houden</li>
-                                        <li>Beste entry points voor je orders</li>
+                                        <li>Hoeveel je deze maand in IWDA en Bitcoin zou kunnen beleggen</li>
+                                        <li>Hoeveel buffer (cash) je eventueel aanhoudt voor kansen of veiligheid</li>
+                                        <li>De optimale verdeling op basis van actuele marktdata</li>
                                     </ul>
+                                    <div class="bg-blue-50 rounded-lg p-4 mt-4 text-blue-700 text-sm">
+                                        <strong>Verbeterd t.o.v. DCA:</strong> In tegenstelling tot standaard DCA investeert GrowWise méér wanneer de markt laag staat (angst) en bouwt het juist een buffer op wanneer de markt hoog staat (hebzucht). Zo benut je kansen en beperk je risico.
+                                    </div>
                                 </div>
 
                                 <div class="border-l-4 border-green-500 pl-4">
@@ -946,20 +949,20 @@ HTML_TEMPLATE = """
 
                         <!-- Disclaimer -->
                         <div class="text-sm text-gray-500 mt-8">
-                            <p>* De MONTO tool geeft suggesties voor timing en allocatie, maar de uiteindelijke investeringsbeslissingen liggen bij jou.</p>
-                            <p>* Zorg dat je bekend bent met de werking van je broker en de beschikbare ordertypen.</p>
+                            <p>* Het GrowWise algoritme geeft suggesties voor verdeling en timing, maar de uiteindelijke investeringsbeslissingen liggen bij jou.</p>
+                            <p>* Dit is géén persoonlijk advies. Raadpleeg een financieel adviseur voor advies op maat.</p>
                             <p>* Beleg nooit meer dan je kunt missen.</p>
                         </div>
                     </div>
 
                     <!-- Algorithm Tab -->
                     <div id="algorithm" class="tab-content hidden">
-                        <h3 class="text-xl font-semibold mb-6">Het MONTO Algoritme Uitgelegd</h3>
+                        <h3 class="text-xl font-semibold mb-6">Het GrowWise Algoritme Uitgelegd</h3>
 
                         <!-- Disclaimer Banner -->
                         <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8">
                             <p class="text-sm text-blue-700">
-                                Dit algoritme is ontwikkeld voor educatieve en informatieve doeleinden. Het vormt geen financieel advies. Raadpleeg een financieel adviseur voor persoonlijk beleggingsadvies.
+                                Dit algoritme is uitsluitend bedoeld voor educatieve en informatieve doeleinden. Het vormt géén persoonlijk financieel advies. Raadpleeg altijd een erkend financieel adviseur voor advies op maat.
                             </p>
                         </div>
 
@@ -1194,6 +1197,10 @@ HTML_TEMPLATE = """
                             </ul>
                         </div>
                     </div>
+                </div>
+                <!-- Zet de disclaimer in de donkerblauwe footer, kleiner en lichter -->
+                <div class="text-xs text-gray-400 text-center mt-8 opacity-80">
+                    GrowWise is een educatieve tool en geeft geen persoonlijk beleggingsadvies. Beleggen brengt risico’s met zich mee. Resultaten uit het verleden bieden geen garantie voor de toekomst. Raadpleeg altijd een financieel adviseur voor persoonlijk advies.
                 </div>
             </div>
         </footer>
@@ -1451,5 +1458,5 @@ def home():
                                 plant_state=plant_state)
 
 if __name__ == '__main__':
-    port = os.environ.get("PORT", 5000)
-    app.run(host="0.0.0.0", port=port)
+    app.debug = True  # Zet debug mode aan voor development
+    app.run(host='0.0.0.0', port=8080)
