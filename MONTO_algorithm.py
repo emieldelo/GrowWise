@@ -126,20 +126,34 @@ class UltimateQuantStrategy:
                 print(f"Yahoo Finance API error: {e}")
                 return None
 
-            # Keep existing Fear & Greed API calls (deze werken al)
+            # Updated CNN Fear & Greed API call
             try:
                 print("Fetching S&P500 Fear & Greed Index...")
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
                 cnn_response = requests.get(
-                    "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+                    "https://fear-and-greed-index.p.rapidapi.com/api/v1/fgi",
+                    headers={
+                        **headers,
+                        'X-RapidAPI-Host': 'fear-and-greed-index.p.rapidapi.com',
+                        'X-RapidAPI-Key': os.getenv('RAPIDAPI_KEY', 'demo')
+                    },
                     timeout=10
                 )
                 cnn_data = cnn_response.json()
-                sp500_fear_greed = float(cnn_data['fear_and_greed']['score'])
+                sp500_fear_greed = float(cnn_data['fgi']['now']['value'])
                 print(f"S&P500 Fear & Greed: {sp500_fear_greed:.1f}")
 
             except Exception as e:
-                print(f"CNN API error: {e}, using fallback calculation")
-                sp500_fear_greed = 50
+                print(f"CNN API error: {e}, calculating from VIX")
+                # Calculate fear & greed from VIX as fallback
+                vix_current = vix_data['Close'].iloc[-1]
+                vix_max = vix_data['Close'].max()
+                vix_min = vix_data['Close'].min()
+                # Convert VIX to 0-100 scale (inverted)
+                sp500_fear_greed = 100 - ((vix_current - vix_min) / (vix_max - vix_min) * 100)
+                print(f"S&P500 Fear & Greed (VIX-based): {sp500_fear_greed:.1f}")
 
             try:
                 print("Fetching Bitcoin Fear & Greed Index...")
