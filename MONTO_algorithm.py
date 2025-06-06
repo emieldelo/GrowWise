@@ -938,6 +938,115 @@ class UltimateQuantStrategy:
 
         tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
         return tr.rolling(window=window).mean().iloc[-1]
+    
+    def run_10y_backtest(self):
+        """
+        Transparante 10-jaars backtest (2015-2025) van GrowWise (volledige UltimateQuantStrategy) vs DCA (70/30).
+        Gebruikt historische VIX en BTC-volatiliteit als Fear & Greed proxies.
+        """
+        import pandas as pd
+
+        # Gebruik je eigen Yahoo API-functie
+        def get_yahoo(symbol, range="10y", interval="1d"):
+            return self.get_market_data_optimized.__func__.__globals__['get_yahoo_data'](symbol, range=range, interval=interval)
+
+        iwda = get_yahoo("IWDA.AS", range="10y", interval="1d")
+        btc = get_yahoo("BTC-USD", range="10y", interval="1d")
+        eurusd = get_yahoo("EURUSD=X", range="10y", interval="1d")
+        vix = get_yahoo("^VIX", range="10y", interval="1d")
+
+        iwda = iwda.ffill()
+        btc = btc.ffill()
+        eurusd = eurusd.ffill()
+        vix = vix.ffill()
+
+        months = pd.date_range("2015-01-01", "2024-12-31", freq="MS")
+        monthly_invest = self.monthly_target
+
+        rows = []
+        gw_iwda_shares = 0
+        gw_btc = 0
+        dca_iwda_shares = 0
+        dca_btc = 0
+
+        # Voor BTC Fear & Greed: gebruik rolling volatiliteit als proxy
+        btc_vol_rolling = btc['Close'].pct_change().rolling(30).std() * (252 ** 0.5)
+
+        for date in months:
+            iwda_hist = iwda.loc[:date]
+            btc_hist = btc.loc[:date]
+            eurusd_hist = eurusd.loc[:date]
+            vix_hist = vix.loc[:date]
+
+            iwda_price = iwda.loc[iwda.index >= date, "Close"].iloc[0]
+            btc_price_usd = btc.loc[btc.index >= date, "Close"].iloc[0]
+            eurusd_rate = eurusd.loc[eurusd.index >= date, "Close"].iloc[0]
+            btc_price_eur = btc_price_usd / eurusd_rate
+
+            # ---- HISTORISCHE FEAR & GREED ----
+            # S&P500: VIX als proxy (hoge VIX = fear, lage VIX = greed)
+            vix_current = vix.loc[vix.index <= date, "Close"].iloc[-1]
+            vix_min = vix.loc[vix.index <= date, "Close"].min()
+            vix_max = vix.loc[vix.index <= date, "Close"].max()
+            vix_percentile = (vix_current - vix_min) / (vix_max - vix_min)
+            sp500_fear_greed = 100 - (vix_percentile * 100)
+            sp500_fear_greed = max(0, min(100, sp500_fear_greed))
+
+            # BTC: rolling volatiliteit als proxy (hoge vol = fear, lage vol = greed)
+            btc_vol = btc_vol_rolling.loc[btc_vol_rolling.index <= date].iloc[-1]
+            btc_vol_min = btc_vol_rolling.loc[btc_vol_rolling.index <= date].min()
+            btc_vol_max = btc_vol_rolling.loc[btc_vol_rolling.index <= date].max()
+            btc_vol_percentile = (btc_vol - btc_vol_min) / (btc_vol_max - btc_vol_min)
+            btc_fear_greed = 100 - (btc_vol_percentile * 100)
+            btc_fear_greed = max(0, min(100, btc_fear_greed))
+
+            data = {
+                'iwda': iwda_hist,
+                'btc': btc_hist,
+                'vix': vix_hist,
+                'sp500_fear_greed': sp500_fear_greed,
+                'btc_fear_greed': btc_fear_greed,
+                'usd_eur_rate': eurusd_rate,
+                'fetch_time': date
+            }
+
+            # --- GrowWise: volledige pipeline ---
+            regime_data = self.calculate_statistical_regime(data)
+            kelly_data = self.calculate_kelly_criterion(data)
+            var_data = self.calculate_value_at_risk(data)
+            allocation = self.optimize_portfolio_allocation(regime_data, kelly_data, var_data, data)
+
+            iwda_shares, iwda_amount = self.calculate_iwda_shares(
+                allocation['iwda_amount'], iwda_price
+            )
+            btc_amount = allocation['btc_amount']
+            gw_iwda_shares += iwda_shares
+            gw_btc += btc_amount / btc_price_eur
+
+            # --- DCA allocatie (70/30) ---
+            dca_iwda_shares += (monthly_invest * 0.7) / iwda_price
+            dca_btc += (monthly_invest * 0.3) / btc_price_eur
+
+            gw_value = gw_iwda_shares * iwda_price + gw_btc * btc_price_eur
+            dca_value = dca_iwda_shares * iwda_price + dca_btc * btc_price_eur
+
+            rows.append({
+                'month': date.strftime('%Y-%m'),
+                'invested': monthly_invest,
+                'gw_iwda': round(gw_iwda_shares * iwda_price, 2),
+                'gw_btc': round(gw_btc * btc_price_eur, 2),
+                'gw_cash': 0,
+                'dca_iwda': round(dca_iwda_shares * iwda_price, 2),
+                'dca_btc': round(dca_btc * btc_price_eur, 2),
+                'iwda_price': round(iwda_price, 2),
+                'btc_price': round(btc_price_eur, 2),
+                'gw_value': round(gw_value, 2),
+                'dca_value': round(dca_value, 2),
+                'sp500_fear_greed': round(sp500_fear_greed, 1),
+                'btc_fear_greed': round(btc_fear_greed, 1)
+            })
+
+        return rows
 
 
 # Initialize the strategy
