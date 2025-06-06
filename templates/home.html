@@ -1302,9 +1302,14 @@
     <!-- Nieuwe transparantie modal -->
 <div id="transparency-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
   <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-5xl relative overflow-y-auto max-h-[90vh]">
-    <button id="close-transparency-modal" class="absolute top-4 right-4 text-gray-400 hover:text-green-600 text-2xl font-bold focus:outline-none" aria-label="Sluiten">
-      &times;
-    </button>
+    <button id="close-transparency-modal" 
+        class="absolute top-4 right-4 text-gray-400 hover:text-green-600 text-2xl font-bold focus:outline-none transition-colors duration-150"
+        aria-label="Sluit transparantie-tabel"
+        title="Sluiten">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+</button>
     <h2 class="text-2xl font-bold mb-4 text-center text-green-700">Volledige Maandelijkse Backtest-berekening</h2>
     <div class="overflow-x-auto">
       <table class="min-w-full text-xs border">
