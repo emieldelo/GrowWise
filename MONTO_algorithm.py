@@ -1022,10 +1022,17 @@ class UltimateQuantStrategy:
             sp500_fear_greed = max(0, min(100, sp500_fear_greed))
 
             # BTC: rolling volatiliteit als proxy (hoge vol = fear, lage vol = greed)
-            btc_vol = btc_vol_rolling.loc[btc_vol_rolling.index <= date].iloc[-1]
-            btc_vol_min = btc_vol_rolling.loc[btc_vol_rolling.index <= date].min()
-            btc_vol_max = btc_vol_rolling.loc[btc_vol_rolling.index <= date].max()
-            btc_vol_percentile = (btc_vol - btc_vol_min) / (btc_vol_max - btc_vol_min)
+            btc_vol_slice = btc_vol_rolling.loc[btc_vol_rolling.index <= date]
+            if not btc_vol_slice.empty:
+                btc_vol = btc_vol_slice.iloc[-1]
+                btc_vol_min = btc_vol_slice.min()
+                btc_vol_max = btc_vol_slice.max()
+            else:
+                btc_vol = 0.5  # of een andere default waarde
+                btc_vol_min = 0.5
+                btc_vol_max = 0.5
+
+            btc_vol_percentile = (btc_vol - btc_vol_min) / (btc_vol_max - btc_vol_min) if btc_vol_max != btc_vol_min else 0.5
             btc_fear_greed = 100 - (btc_vol_percentile * 100)
             btc_fear_greed = max(0, min(100, btc_fear_greed))
 
