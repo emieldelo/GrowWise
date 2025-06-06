@@ -1006,10 +1006,18 @@ class UltimateQuantStrategy:
 
             # ---- HISTORISCHE FEAR & GREED ----
             # S&P500: VIX als proxy (hoge VIX = fear, lage VIX = greed)
-            vix_current = vix.loc[vix.index <= date, "Close"].iloc[-1]
-            vix_min = vix.loc[vix.index <= date, "Close"].min()
-            vix_max = vix.loc[vix.index <= date, "Close"].max()
-            vix_percentile = (vix_current - vix_min) / (vix_max - vix_min)
+            vix_slice = vix.loc[vix.index <= date, "Close"]
+            if not vix_slice.empty:
+                vix_current = vix_slice.iloc[-1]
+                vix_min = vix_slice.min()
+                vix_max = vix_slice.max()
+            else:
+                # Kies een default waarde, bijvoorbeeld 20
+                vix_current = 20
+                vix_min = 20
+                vix_max = 20
+
+            vix_percentile = (vix_current - vix_min) / (vix_max - vix_min) if vix_max != vix_min else 0.5
             sp500_fear_greed = 100 - (vix_percentile * 100)
             sp500_fear_greed = max(0, min(100, sp500_fear_greed))
 
