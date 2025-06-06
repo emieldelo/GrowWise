@@ -8,6 +8,9 @@ import traceback
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "geheim")  # Nodig voor session
 
+
+
+
 SUPABASE_JWT_SECRET = os.environ.get("JWT_SECRET")  # Haal de secret uit je environment
 
 def verify_supabase_jwt(token):
@@ -16,13 +19,13 @@ def verify_supabase_jwt(token):
             token,
             SUPABASE_JWT_SECRET,
             algorithms=["HS256"],
-            options={"verify_aud": False}
+            options={"verify_aud": False}  # <-- voeg dit toe!
         )
         return payload
     except Exception as e:
         print(f"JWT verificatie mislukt: {e}")
         return None
-
+    
 def get_plant_state(fear_greed_score):
     """Bepaal plant status op basis van fear & greed score"""
     if fear_greed_score <= 25:  # Extreme Fear
@@ -95,25 +98,6 @@ def home():
         plant_state = get_plant_state(50)
         result = None
 
-        # --- BACKTEST DATA ---
-        # Dit is extra, heeft geen invloed op bestaande functionaliteit
-        strategy = UltimateQuantStrategy()
-        transparency_rows = strategy.run_10y_backtest()
-
-        # Jaarresultaten voor tabel/grafiek
-        import pandas as pd
-        df = pd.DataFrame(transparency_rows)
-        df['year'] = df['month'].str[:4]
-        annual = df.groupby('year').agg({
-            'gw_value': 'last',
-            'dca_value': 'last',
-            'invested': 'sum'
-        }).reset_index()
-        annual['gw_roi'] = ((annual['gw_value'] - annual['invested'].cumsum()) / annual['invested'].cumsum() * 100).round(1)
-        annual['dca_roi'] = ((annual['dca_value'] - annual['invested'].cumsum()) / annual['invested'].cumsum() * 100).round(1)
-        annual_results = annual.to_dict(orient='records')
-        # --- EINDE BACKTEST DATA ---
-
         if request.method == 'POST':
             # AUTHENTICATIE CHECK
             auth_header = request.headers.get('Authorization', '')
@@ -127,6 +111,7 @@ def home():
             if amount < 100 or amount > 10000:
                 raise ValueError("Bedrag moet tussen €100 en €10.000 liggen")
 
+            strategy = UltimateQuantStrategy()
             recommendation = strategy.generate_ultimate_recommendation()
             recommendation = scale_recommendation(recommendation, amount)
 
@@ -201,7 +186,7 @@ def home():
                         'trading_tips': {
                             'execution_tips': [
                                 "Gebruik GTC (Good-til-Cancelled) voor limit orders",
-                                "Handel tussen 14:30-22:00 CET voor beste spreads",
+                                "Handel tussen 14:30-22:00 CET voor beste spreads", 
                                 "Monitor orders en pas aan na 48 uur indien niet gevuld",
                                 "Overweeg orders te annuleren na 5 handelsdagen"
                             ]
@@ -229,21 +214,14 @@ def home():
         session['plant_state'] = plant_state
         return redirect(url_for('home'))
 
-    # Voeg de backtest-data toe aan de render
-    return render_template(
-        'home.html',
-        result=result,
-        plant_state=plant_state,
-        annual_results=annual_results,
-        transparency_rows=transparency_rows
-    )
+    return render_template('home.html', result=result, plant_state=plant_state)
 
 @app.errorhandler(401)
 def unauthorized(e):
     if request.accept_mimetypes.accept_json:
         return jsonify({'error': 'Unauthorized'}), 401
-    return render_template('401.html'), 401
+    return render_template('401.html'), 401  # optioneel, als je een HTML pagina wilt
 
 if __name__ == '__main__':
-    app.debug = True
+    app.debug = True  # Zet debug mode aan voor development
     app.run(host='0.0.0.0', port=8080)
