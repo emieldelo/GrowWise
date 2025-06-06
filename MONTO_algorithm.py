@@ -14,7 +14,33 @@ from zoneinfo import ZoneInfo  # Add this with your other imports
 
 warnings.filterwarnings('ignore')
 
-
+def get_yahoo_data_backtest(symbol, range="10y", interval="1d"):
+    import requests
+    import pandas as pd
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    params = {
+        "range": range,
+        "interval": interval,
+        "includePrePost": False
+    }
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+    if 'chart' in data and 'result' in data['chart'] and data['chart']['result']:
+        result = data['chart']['result'][0]
+        timestamps = pd.to_datetime(result['timestamp'], unit='s')
+        quotes = result['indicators']['quote'][0]
+        df = pd.DataFrame({
+            'Open': quotes.get('open', []),
+            'High': quotes.get('high', []),
+            'Low': quotes.get('low', []),
+            'Close': quotes.get('close', []),
+            'Volume': quotes.get('volume', [])
+        }, index=timestamps)
+        return df.dropna()
+    return pd.DataFrame()
 
 class UltimateQuantStrategy:
     """
@@ -944,16 +970,11 @@ class UltimateQuantStrategy:
         Transparante 10-jaars backtest (2015-2025) van GrowWise (volledige UltimateQuantStrategy) vs DCA (70/30).
         Gebruikt historische VIX en BTC-volatiliteit als Fear & Greed proxies.
         """
-        import pandas as pd
-
-        # Gebruik je eigen Yahoo API-functie
-        def get_yahoo(symbol, range="10y", interval="1d"):
-            return self.get_market_data_optimized.__func__.__globals__['get_yahoo_data'](symbol, range=range, interval=interval)
-
-        iwda = get_yahoo("IWDA.AS", range="10y", interval="1d")
-        btc = get_yahoo("BTC-USD", range="10y", interval="1d")
-        eurusd = get_yahoo("EURUSD=X", range="10y", interval="1d")
-        vix = get_yahoo("^VIX", range="10y", interval="1d")
+       
+        iwda = get_yahoo_data_backtest("IWDA.AS", range="10y", interval="1d")
+        btc = get_yahoo_data_backtest("BTC-USD", range="10y", interval="1d")
+        eurusd = get_yahoo_data_backtest("EURUSD=X", range="10y", interval="1d")
+        vix = get_yahoo_data_backtest("^VIX", range="10y", interval="1d")
 
         iwda = iwda.ffill()
         btc = btc.ffill()
