@@ -886,7 +886,7 @@
                         <h3 class="text-xl font-semibold mb-6">GrowWise Strategie: Consistente Maandelijkse Groei</h3>
 
                         <!-- Nieuw: Kader het doel van het algoritme -->
-                        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 text-yellow-800 text-sm rounded">
+                        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
         <strong>Let op:</strong> Het GrowWise algoritme is speciaal ontwikkeld om je te laten zien hoe je jouw maandelijkse inleg slim kunt verdelen over verschillende beleggingen (zoals IWDA en Bitcoin) en hoeveel je eventueel als buffer kunt aanhouden. Je krijgt géén persoonlijk advies, maar een educatief inzicht in mogelijke verdelingen op basis van actuele marktomstandigheden.
     </div>
 
@@ -1056,7 +1056,7 @@
 
                     <!-- Results Tab -->
                     <div id="results" class="tab-content hidden">
-                        <h3 class="text-xl font-semibold mb-6">Historische Resultaten MONTO vs DCA</h3>
+                        <h3 class="text-xl font-semibold mb-6">Historische Resultaten GrowWise strategie vs DCA</h3>
                         
                         <!-- Disclaimer Banner -->
                         <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8">
@@ -1069,9 +1069,9 @@
                         <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
                             <h4 class="text-lg font-semibold mb-4">10-Jaars Analyse (2015-2025)</h4>
                             <div class="grid md:grid-cols-2 gap-6">
-                                <!-- MONTO Strategie -->
+                                <!-- GrowWise Strategie -->
                                 <div class="space-y-4">
-                                    <h5 class="font-medium text-green-600">MONTO Strategie</h5>
+                                    <h5 class="font-medium text-green-600">GrowWise strategie</h5>
                                     <div class="bg-gray-50 p-4 rounded-lg">
                                         <ul class="space-y-2">
                                             <li class="flex justify-between">
@@ -1123,28 +1123,37 @@
 
                         <!-- Jaar-per-jaar Analyse -->
                         <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-                            <h4 class="text-lg font-semibold mb-4">Jaarlijkse Prestaties</h4>
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full">
-                                    <thead>
-                                        <tr class="bg-gray-50">
-                                            <th class="px-4 py-2 text-left">Jaar</th>
-                                            <th class="px-4 py-2 text-right">MONTO ROI</th>
-                                            <th class="px-4 py-2 text-right">DCA ROI</th>
-                                            <th class="px-4 py-2 text-right">Verschil</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-200">
-                                        <tr>
-                                            <td class="px-4 py-2">2024</td>
-                                            <td class="px-4 py-2 text-right text-green-600">+28.0%</td>
-                                            <td class="px-4 py-2 text-right text-blue-600">+18.0%</td>
-                                            <td class="px-4 py-2 text-right text-green-600">+10.0%</td>
-                                        </tr>
-                                        <!-- Voeg meer jaren toe -->
-                                    </tbody>
-                                </table>
-                            </div>
+                            <div class="flex justify-between items-center mb-4">
+    <h4 class="text-lg font-semibold mb-0">Jaarlijkse Prestaties</h4>
+    <button id="show-transparency" class="text-xs text-green-600 underline hover:text-green-800">Toon volledige maandelijkse tabel</button>
+</div>
+<div class="overflow-x-auto">
+    <table class="min-w-full">
+        <thead>
+            <tr class="bg-gray-50">
+                <th class="px-4 py-2 text-left">Jaar</th>
+                <th class="px-4 py-2 text-right">GrowWise strategie ROI</th>
+                <th class="px-4 py-2 text-right">DCA ROI</th>
+                <th class="px-4 py-2 text-right">Verschil</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for row in annual_results %}
+            <tr>
+                <td class="px-4 py-2">{{ row.year }}</td>
+                <td class="px-4 py-2 text-right text-green-600">{{ row.gw_roi }}%</td>
+                <td class="px-4 py-2 text-right text-blue-600">{{ row.dca_roi }}%</td>
+                <td class="px-4 py-2 text-right {% if row.gw_roi - row.dca_roi > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {{ (row.gw_roi - row.dca_roi)|round(1) }}%
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="text-xs text-gray-500 mt-2">
+    * Resultaten zijn netto na kosten, gebaseerd op werkelijke marktdata. Klik op de tabelkop voor volledige transparantie.
+</div>
                         </div>
 
                         <!-- Risico Metrics -->
@@ -1152,7 +1161,7 @@
                             <h4 class="text-lg font-semibold mb-4">Risico Analyse</h4>
                             <div class="grid md:grid-cols-2 gap-6">
                                 <div class="space-y-4">
-                                    <h5 class="font-medium">MONTO Strategie</h5>
+                                    <h5 class="font-medium">GrowWise strategie</h5>
                                     <div class="bg-gray-50 p-4 rounded-lg">
                                         <ul class="space-y-2">
                                             <li>Maximale Drawdown: -38%</li>
@@ -1290,6 +1299,57 @@
         <div class="spinner"></div>
     </div>
 
+    <!-- Nieuwe transparantie modal -->
+<div id="transparency-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" style="display:none;">
+  <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-5xl relative overflow-y-auto max-h-[90vh]">
+    <button id="close-transparency-modal" class="absolute top-4 right-4 text-gray-400 hover:text-green-600 text-2xl font-bold focus:outline-none" aria-label="Sluiten">
+      &times;
+    </button>
+    <h2 class="text-2xl font-bold mb-4 text-center text-green-700">Volledige Maandelijkse Backtest-berekening</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-xs border">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="px-2 py-1 border">Maand</th>
+            <th class="px-2 py-1 border">Inleg</th>
+            <th class="px-2 py-1 border">GrowWise IWDA</th>
+            <th class="px-2 py-1 border">GrowWise BTC</th>
+            <th class="px-2 py-1 border">DCA IWDA</th>
+            <th class="px-2 py-1 border">DCA BTC</th>
+            <th class="px-2 py-1 border">IWDA koers</th>
+            <th class="px-2 py-1 border">BTC koers</th>
+            <th class="px-2 py-1 border">GW waarde</th>
+            <th class="px-2 py-1 border">DCA waarde</th>
+            <th class="px-2 py-1 border">SP500 F&G</th>
+            <th class="px-2 py-1 border">BTC F&G</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in transparency_rows %}
+          <tr>
+            <td class="px-2 py-1 border">{{ row.month }}</td>
+            <td class="px-2 py-1 border">€{{ row.invested }}</td>
+            <td class="px-2 py-1 border">€{{ row.gw_iwda }}</td>
+            <td class="px-2 py-1 border">€{{ row.gw_btc }}</td>
+            <td class="px-2 py-1 border">€{{ row.dca_iwda }}</td>
+            <td class="px-2 py-1 border">€{{ row.dca_btc }}</td>
+            <td class="px-2 py-1 border">€{{ row.iwda_price }}</td>
+            <td class="px-2 py-1 border">€{{ row.btc_price }}</td>
+            <td class="px-2 py-1 border">€{{ row.gw_value }}</td>
+            <td class="px-2 py-1 border">€{{ row.dca_value }}</td>
+            <td class="px-2 py-1 border">{{ row.sp500_fear_greed }}</td>
+            <td class="px-2 py-1 border">{{ row.btc_fear_greed }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="text-xs text-gray-500 mt-4 text-center">
+      * Alle bedragen zijn netto na kosten. Je kunt deze berekening zelf controleren met de historische koersen van Yahoo Finance.
+    </div>
+  </div>
+</div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Scroll buttons
@@ -1328,7 +1388,7 @@
                         return false;
                     }
                     const token = (await supabase.auth.getSession()).data.session.access_token;
-                    const formData = new FormData(this);
+                                       const formData = new FormData(this);
                     const response = await fetch("/", {
                         method: "POST",
                         headers: {
@@ -1445,6 +1505,12 @@
     if (closeSignupModal) {
         closeSignupModal.onclick = function() {
             document.getElementById('signup-modal').style.display = 'none';
+        };
+    }
+    const closeTransparencyModal = document.getElementById('close-transparency-modal');
+    if (closeTransparencyModal) {
+        closeTransparencyModal.onclick = function() {
+            document.getElementById('transparency-modal').style.display = 'none';
         };
     }
 
