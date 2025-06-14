@@ -48,7 +48,7 @@ class UltimateQuantStrategy:
         }
 
         # Kelly Criterion parameters
-        self.max_kelly_fraction = 0.25  # Never risk more than 25%
+        self.max_kelly_fraction = 0.33  # Never risk more than 25%
 
         # Load historical performance data
         self.performance_history = self.load_performance_data()
@@ -324,7 +324,7 @@ class UltimateQuantStrategy:
         iwda_allocation = 0.67
         btc_allocation = 0.33
 
-        # Bitcoin-specific multipliers based on crypto fear & greed
+        # --- Bestaande multiplier-logica voor BTC ---
         if btc_fear_greed >= 80:  # Extreme greed (80-100)
             scale_factor = (btc_fear_greed - 80) / 20
             btc_multiplier = 0.2 + (scale_factor * 0.2)  # 0.2-0.4 range
@@ -357,18 +357,7 @@ class UltimateQuantStrategy:
             regime = "CRYPTO_EXTREME_FEAR"
             print("💡 CRYPTO OPPORTUNITY: Maximum buying opportunity")
 
-        # Calculate BTC target amount
-        btc_target = round(self.monthly_target * btc_multiplier * btc_allocation, 2)
-        btc_target = min(btc_target, btc_max)  # Apply cap
-
-        # IWDA signals
-        iwda_signals = {
-            'sp500_fear': sp500_fear_greed <= 35,
-            'vix_high': regime_data['vix_level'] > 25,
-            'price_vs_ma': regime_data['iwda_vs_ma200'] < -5,  # 5% onder MA200
-        }
-
-        # IWDA multiplier logic (geoptimaliseerde ranges)
+        # --- Bestaande multiplier-logica voor IWDA ---
         if sp500_fear_greed >= 80:  # Extreme greed (80-100)
             scale_factor = (sp500_fear_greed - 80) / 20
             iwda_multiplier = 0.2 + (scale_factor * 0.2)  # 0.2-0.4 range
@@ -394,14 +383,35 @@ class UltimateQuantStrategy:
             iwda_multiplier = 1.3 + (scale_factor * 0.7)  # 1.3-2.0 range
             iwda_message = "💡 IWDA OPPORTUNITY: Extreme market fear - significant allocation increase"
 
-        # Calculate IWDA target
-        iwda_target = round(self.monthly_target * iwda_multiplier * iwda_allocation, 2)
+        # --- Tactisch deel (20% van target) ---
+        tactical_pct = 0.2
+        tactical_target = self.monthly_target * tactical_pct
 
-        # Calculate IWDA shares
+        # Bepaal tactisch bedrag ZONDER Kelly
+        iwda_tactical = tactical_target * iwda_allocation * iwda_multiplier
+        btc_tactical = tactical_target * btc_allocation * btc_multiplier
+
+        # --- Vaste allocatie (80% van target) ---
+        fixed_pct = 0.8
+        invest_fixed_iwda = self.monthly_target * fixed_pct * iwda_allocation
+        invest_fixed_btc = self.monthly_target * fixed_pct * btc_allocation
+
+        # --- Eindbedragen ---
+        iwda_total = invest_fixed_iwda + iwda_tactical
+        btc_total = invest_fixed_btc + btc_tactical
+
+        # --- Bereken IWDA shares ---
         iwda_shares, iwda_amount = self.calculate_iwda_shares(
-            iwda_target,
+            iwda_total,
             data['iwda']['Close'].iloc[-1]
         )
+
+        # --- IWDA signals (ongewijzigd) ---
+        iwda_signals = {
+            'sp500_fear': sp500_fear_greed <= 35,
+            'vix_high': regime_data['vix_level'] > 25,
+            'price_vs_ma': regime_data['iwda_vs_ma200'] < -5,
+        }
 
         if iwda_message:
             print(iwda_message)
@@ -410,8 +420,8 @@ class UltimateQuantStrategy:
             'iwda_amount': iwda_amount,
             'iwda_shares': iwda_shares,
             'iwda_signals': iwda_signals,
-            'btc_amount': int(btc_target),
-            'total_investment': int(iwda_amount + btc_target),
+            'btc_amount': int(btc_total),
+            'total_investment': int(iwda_amount + btc_total),
             'regime': regime,
             'btc_fear_greed_level': btc_fear_greed,
             'component_count': 2,
@@ -420,7 +430,9 @@ class UltimateQuantStrategy:
                 'btc_weight': btc_allocation,
                 'iwda_kelly': kelly_data['iwda_kelly'],
                 'btc_kelly': kelly_data['btc_kelly']
-            }
+            },
+            'iwda_multiplier': iwda_multiplier,
+            'btc_multiplier': btc_multiplier
         }
 
     def calculate_iwda_shares(self, target_amount, price):
@@ -490,6 +502,28 @@ class UltimateQuantStrategy:
         print("💰 Calculating expected returns...")
         performance = self.calculate_expected_returns(allocation, var_data)
 
+        # 1. Altijd 80% direct investeren volgens vaste allocatie
+        fixed_pct = 0.8
+        iwda_allocation = 0.67
+        btc_allocation = 0.33
+
+        invest_fixed_iwda = self.monthly_target * fixed_pct * iwda_allocation
+        invest_fixed_btc = self.monthly_target * fixed_pct * btc_allocation
+
+        # 2. 20% via optimize_portfolio_allocation (tactisch deel)
+        tactical_pct = 0.2
+        tactical_target = self.monthly_target * tactical_pct
+
+        alloc = self.optimize_portfolio_allocation(regime_data, kelly_data, var_data, data)
+
+        # Gebruik de multipliers uit allocatie-functie voor het tactische deel
+        invest_tactical_iwda = tactical_target * iwda_allocation * alloc['iwda_multiplier']
+        invest_tactical_btc = tactical_target * btc_allocation * alloc['btc_multiplier']
+
+        # 3. Totaal te investeren deze maand
+        invest_iwda = invest_fixed_iwda + invest_tactical_iwda
+        invest_btc = invest_fixed_btc + invest_tactical_btc
+
         # Compile comprehensive recommendation
         recommendation = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -516,6 +550,20 @@ class UltimateQuantStrategy:
                 'iwda_proxy': data['iwda']['Close'].iloc[-1],
                 'btc': data['btc']['Close'].iloc[-1],
                 'vix': data['vix']['Close'].iloc[-1]
+            },
+            'investments': {
+                'fixed': {
+                    'iwda': invest_fixed_iwda,
+                    'btc': invest_fixed_btc
+                },
+                'tactical': {
+                    'iwda': invest_tactical_iwda,
+                    'btc': invest_tactical_btc
+                },
+                'total': {
+                    'iwda': invest_iwda,
+                    'btc': invest_btc
+                }
             }
         }
 
