@@ -80,17 +80,6 @@ def get_plant_state(fear_greed_score):
         }
 
 
-def scale_recommendation(recommendation, input_amount):
-    """Schaalt de aanbeveling op basis van het ingevoerde bedrag"""
-    STANDARD_AMOUNT = 1500  # Standaard bedrag waar algoritme op is gebouwd
-    scaling_factor = input_amount / STANDARD_AMOUNT
-
-    # Pas alleen de bedragen aan, behoud alle percentages
-    recommendation['allocation']['iwda_amount'] *= scaling_factor
-    recommendation['allocation']['btc_amount'] *= scaling_factor
-
-    
-    return recommendation
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
@@ -110,10 +99,18 @@ def home():
             amount = float(request.form['amount'])
             if amount < 100 or amount > 10000:
                 raise ValueError("Bedrag moet tussen €100 en €10.000 liggen")
+            
+            iwda_pct = float(request.form.get('iwda_pct', 67))  # default 67%
+            btc_pct = 100 - iwda_pct
+            iwda_allocation = iwda_pct / 100
+            btc_allocation = btc_pct / 100
 
-            strategy = UltimateQuantStrategy()
+            strategy = UltimateQuantStrategy(
+                iwda_allocation=iwda_allocation,
+                btc_allocation=btc_allocation,
+                monthly_target=amount
+            )
             recommendation = strategy.generate_ultimate_recommendation()
-            recommendation = scale_recommendation(recommendation, amount)
 
             if recommendation:
                 allocations = recommendation['allocation']
