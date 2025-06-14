@@ -23,11 +23,16 @@ class UltimateQuantStrategy:
     with cutting-edge mathematical optimization
     """
 
-    def __init__(self):
+    def __init__(self, iwda_allocation=0.67, btc_allocation=0.33, monthly_target=1500):
 
-        
+        self.iwda_allocation = iwda_allocation
+        self.btc_allocation = btc_allocation
+        self.monthly_target = monthly_target
+
         # Core strategy parameters (keeping your brilliant base)
-        self.monthly_target = 1500
+        self.monthly_target = monthly_target
+
+        # Deze variabls worden niet gebruikt
         self.component_size = 300
         self.iwda_components = 3.33  # 1000/300
         self.btc_components = 1.67   # 500/300
@@ -321,8 +326,12 @@ class UltimateQuantStrategy:
         sp500_fear_greed = regime_data['sp500_fear_greed']
 
         # Default allocations (67% IWDA, 33% BTC)
-        iwda_allocation = 0.67
-        btc_allocation = 0.33
+        iwda_allocation = self.iwda_allocation
+        btc_allocation = self.btc_allocation
+
+        if not (0.2 <= iwda_allocation <= 0.8):
+            iwda_allocation = 0.67
+            btc_allocation = 0.33
 
         # --- Bestaande multiplier-logica voor BTC ---
         if btc_fear_greed >= 80:  # Extreme greed (80-100)
